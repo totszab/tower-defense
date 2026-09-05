@@ -15,6 +15,10 @@ public partial class LevelBuild : Node2D
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
+    // Bootstrap value only — real starting HP belongs in a per-level Resource
+    // once real levels exist (GAMEPLAY.md "Pályák" TBD).
+    private const int StartingHp = 10;
+
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
 
@@ -22,14 +26,20 @@ public partial class LevelBuild : Node2D
     private Node2D _towers;
     private Node2D _enemies;
     private PackedScene _selectedTowerScene;
+    private Label _hpLabel;
+    private int _hp;
 
     public override void _Ready()
     {
         _towers = GetNode<Node2D>("Towers");
         _enemies = GetNode<Node2D>("Enemies");
+        _hpLabel = GetNode<Label>("CanvasLayer/HpLabel");
         GetNode<Button>("CanvasLayer/SpawnButton").Pressed += OnSpawnPressed;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
         BuildTowerPalette();
+
+        _hp = StartingHp;
+        UpdateHpLabel();
         QueueRedraw();
     }
 
@@ -64,8 +74,18 @@ public partial class LevelBuild : Node2D
                 CustomMinimumSize = new Vector2(64, 64),
                 StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered,
                 IgnoreTextureSize = true,
+                Modulate = Colors.White,
             };
-            button.Pressed += () => _selectedTowerScene = towerScene;
+            // Toggled (not Pressed) fires for both the newly selected AND the
+            // previously selected button in the group, so the old one visibly un-highlights.
+            button.Toggled += pressed =>
+            {
+                button.Modulate = pressed ? new Color(1f, 0.95f, 0.4f) : Colors.White;
+                if (pressed)
+                {
+                    _selectedTowerScene = towerScene;
+                }
+            };
             palette.AddChild(button);
         }
     }
@@ -101,9 +121,17 @@ public partial class LevelBuild : Node2D
     {
         if (area is Enemy enemy)
         {
-            // TBD (ROADMAP Fázis 4): levonni Data.Dmg-et a játékos életéből RunState-en keresztül.
+            // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba költözik,
+            // amikor a teljes statisztika/skill fa kör megépül.
+            _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(enemy.Data.Dmg));
+            UpdateHpLabel();
             enemy.QueueFree();
         }
+    }
+
+    private void UpdateHpLabel()
+    {
+        _hpLabel.Text = $"HP: {_hp}";
     }
 
     public override void _Draw()

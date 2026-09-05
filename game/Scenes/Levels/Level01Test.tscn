@@ -32,3 +32,10 @@ offset_top = 210.0
 offset_right = 170.0
 offset_bottom = 246.0
 text = "Ellenség indítása"
+
+[node name="HpLabel" type="Label" parent="CanvasLayer"]
+offset_left = 10.0
+offset_top = 250.0
+offset_right = 170.0
+offset_bottom = 280.0
+text = "HP: 10"
