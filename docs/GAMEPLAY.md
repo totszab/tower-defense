@@ -74,15 +74,32 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 | Torony-specifikus upgrade | `Nyílvető torony: +damage`, `Nyílvető torony: +range` | Csak az adott torony típusra hat |
 | Eszköz/képesség (**TBD — tartalom nyitott**) | ? | Feltehetően harc közben aktiválható, korlátozott használatú kiegészítő; pontos definíció még nincs lefektetve |
 
-TBD: pontos node-lista, árak, fa-alak (mennyi ág, mennyi mélység), pontos "torony slot" kezdő- és maximum értéke.
+TBD: pontos node-lista, árak, fa-alak (mennyi ág, mennyi mélység), pontos "torony slot" maximum értéke.
+
+**Fontos, rögzített elv**: a globális stat ág (élet, arany-szorzó, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra. A tartalombővítés (Fázis 3) során ez ne sikkadjon el a torony-specifikus ágak mellett.
+
+**Induló állapot (Fázis 2 bootstrap, "üres" skill fa)**: a játékos 0 meta-arannyal indul, semmi nincs megvásárolva a fán. A skill fától **függetlenül**, alapból (baseline, nem unlock-kötött) rendelkezésre áll:
+- 1 torony típus (lásd lent)
+- 1 torony slot (egyszerre 1 lerakott torony engedélyezett)
+
+A skill fa node-jai *ezen a baseline-on felül* adnak további torony típusokat és slot-okat — tehát a fa nem "0-ról épít fel mindent", hanem a minimális játszható állapotot bővíti.
 
 ## Tornyok
 
-Kezdeti kör: **3-4 torony típus**, mindegyik egyértelműen más szerepkörrel.
+**Fázis 2 bootstrap — az első torony** (ezzel lesz először tesztelhető a teljes kör):
+
+| Mező | Érték |
+|---|---|
+| Damage | 1 |
+| FireRate (sebesség — **hányszor lő másodpercenként**) | 1 |
+| Range | **TBD** — értelmes szám csak a pálya rács/koordináta-rendszer eldöntése után adható (Fázis 1 implementációs döntés) |
+| Sprite | Placeholder (egyszerű geometrikus forma, pl. négyzet) |
+
+**Célkép (Fázis 3-ra)**: **3-4 torony típus**, mindegyik egyértelműen más szerepkörrel — a fenti az "Alap lövő" szerepkör első, minimál változata.
 
 | Torony | Szerepkör | TBD részletek |
 |---|---|---|
-| Alap lövő | Kiegyensúlyozott damage/range/rate | pontos számok |
+| Alap lövő | Kiegyensúlyozott damage/range/rate (lásd bootstrap fent) | Fázis 3: véglegesítendő számok |
 | ? | Terület sebzés (AoE) | típus, számok |
 | ? | Lassítás/kontroll | típus, számok |
 | ? | Nagy sebzés, lassú tűzgyorsaság (sniper jellegű) | típus, számok |
@@ -91,16 +108,28 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 
 ## Ellenségek
 
-Kezdeti kör: **3-4 ellenség típus**.
+**Fázis 2 bootstrap — az első ellenség**:
+
+| Mező | Érték |
+|---|---|
+| HP | 5 |
+| Dmg (mennyi életet vesz el, ha célba ér) | 1 |
+| Value (mennyi aranyat ad, ha megölik) | 1 |
+| Speed (sebesség — **mekkora távolságot tesz meg időegység alatt**) | 1 |
+| Sprite | Placeholder (egyszerű geometrikus forma, pl. fekete kör vagy háromszög) |
+
+**Célkép (Fázis 3-ra)**: **3-4 ellenség típus**, a fenti az "Alap" szerepkör első, minimál változata.
 
 | Ellenség | Jellemző | TBD részletek |
 |---|---|---|
-| Alap | Kiegyensúlyozott HP/sebesség | pontos számok |
+| Alap | Kiegyensúlyozott HP/sebesség (lásd bootstrap fent) | Fázis 3: véglegesítendő számok |
 | ? | Gyors, kevés HP | számok |
 | ? | Lassú, sok HP ("tank") | számok |
 | ? | Speciális (pl. páncél/resist bizonyos torony ellen, vagy repülő) | típus, számok |
 
-Minden ellenséghez: `HP`, `Dmg` (mennyi életet vesz el ha célba ér), `Value` (mennyi aranyat ad, ha megölik).
+Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`.
+
+**Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (megtett távolság/időegység). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek.
 
 ## Pályák
 

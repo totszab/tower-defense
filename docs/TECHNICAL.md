@@ -55,6 +55,7 @@ A cél: kezdetben ingyenes assetekkel dolgozunk, később lecserélhető legyen 
 - `SkillNodeData : Resource` — mezők: `Id`, `Cost` (meta-arany), `Prerequisites (SkillNodeData[])`, `EffectType` (enum: `GlobalStat`, `TowerUnlock`, `TowerUpgrade`, `Ability`), `EffectValue`, `TargetTowerId` (ha torony-specifikus)
 - A fa maga adatból épül fel (a `Prerequisites` referenciák alkotják a gráfot), nincs kódba égetett fa-struktúra
 - `SkillTreeManager` (autoload): felelős a node-ok unlock állapotáért, az elkölthető egyenlegért, és azért, hogy a build fázisban mely torony-típusok/hány slot érhető el — ez olvassa a `PlayerProgress`-t (lásd Mentésrendszer)
+- **Baseline (skill fától független) értékek**: `BaseTowerSlots = 1`, `BaseUnlockedTowerIds = [starter torony id]` — ezek nem `SkillNodeData` unlockok, hanem a `SkillTreeManager`-be égetett minimum, amin a skill fa node-jai felül bővítenek. Ez teszi lehetővé az "üres fa" bootstrap állapotot (GAMEPLAY.md).
 
 ## Kommunikáció / komponensek közötti kapcsolat
 
