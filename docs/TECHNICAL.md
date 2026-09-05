@@ -50,6 +50,13 @@ A cél: kezdetben ingyenes assetekkel dolgozunk, később lecserélhető legyen 
 - A sprite/hang mindig **referencia** a Resource-ban, a kód sosem hivatkozik fájlnévre stringként
 - Sprite/hang csere = a `.tres` fájlban átkattintod az új asset referenciát, kód nem változik
 
+## Pálya rács / koordináta-rendszer
+
+- **Rácsos (tile-alapú)** elrendezés — a pálya egy N×M rács, minden mező vagy útvonal, vagy építhető (vagy egyik sem, pl. dekoráció/akadály)
+- **Tile méret: 64×64 px** — ez a Kenney.nl és a legtöbb ingyenes 2D TD asset pack natív mérete, így asset csere esetén nem kell újraskálázni
+- A `Range` (torony hatótávolság) és a `Speed` (ellenség sebesség) **tile-egységben** értendő, nem raw pixelben — pl. `Range = 3` azt jelenti, 3 tile sugarú körben lát célt a torony. Ez balance-oláskor is átláthatóbb, mint a pixelszám.
+- Pálya-méret (N×M) pályánként eltérhet, nincs egységes rögzített méret — ez a level layout kérdése (GAMEPLAY.md "Pályák")
+
 ## Skill fa adatmodell
 
 - `SkillNodeData : Resource` — mezők: `Id`, `Cost` (meta-arany), `Prerequisites (SkillNodeData[])`, `EffectType` (enum: `GlobalStat`, `TowerUnlock`, `TowerUpgrade`, `Ability`), `EffectValue`, `TargetTowerId` (ha torony-specifikus)

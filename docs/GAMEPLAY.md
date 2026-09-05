@@ -92,7 +92,7 @@ A skill fa node-jai *ezen a baseline-on felül* adnak további torony típusokat
 |---|---|
 | Damage | 1 |
 | FireRate (sebesség — **hányszor lő másodpercenként**) | 1 |
-| Range | **TBD** — értelmes szám csak a pálya rács/koordináta-rendszer eldöntése után adható (Fázis 1 implementációs döntés) |
+| Range | 3 (tile) — lásd TECHNICAL.md "Pálya rács" a tile-alapú egységről |
 | Sprite | Placeholder (egyszerű geometrikus forma, pl. négyzet) |
 
 **Célkép (Fázis 3-ra)**: **3-4 torony típus**, mindegyik egyértelműen más szerepkörrel — a fenti az "Alap lövő" szerepkör első, minimál változata.
@@ -115,7 +115,7 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 | HP | 5 |
 | Dmg (mennyi életet vesz el, ha célba ér) | 1 |
 | Value (mennyi aranyat ad, ha megölik) | 1 |
-| Speed (sebesség — **mekkora távolságot tesz meg időegység alatt**) | 1 |
+| Speed (sebesség — **mekkora távolságot tesz meg időegység alatt**, tile/mp) | 1 |
 | Sprite | Placeholder (egyszerű geometrikus forma, pl. fekete kör vagy háromszög) |
 
 **Célkép (Fázis 3-ra)**: **3-4 ellenség típus**, a fenti az "Alap" szerepkör első, minimál változata.
@@ -129,7 +129,7 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 
 Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`.
 
-**Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (megtett távolság/időegység). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek.
+**Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (tile/másodperc). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek. Mindkét torony- és ellenség-mérték (`Range`, `Speed`) a rácsos pálya tile-egységére épül — lásd TECHNICAL.md "Pálya rács / koordináta-rendszer".
 
 ## Pályák
 
