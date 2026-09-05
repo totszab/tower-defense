@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://Scenes/Towers/Tower.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://Scenes/Enemies/Enemy.tscn" id="2"]
+
+[node name="BootstrapTest" type="Node2D"]
+
+[node name="Tower" parent="." instance=ExtResource("1")]
+position = Vector2(400, 300)
+
+[node name="Enemy" parent="." instance=ExtResource("2")]
+position = Vector2(0, 340)
