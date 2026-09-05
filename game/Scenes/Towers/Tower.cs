@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Godot;
 using TowerDefense.Data;
 using TowerDefense.Enemies;
+using TowerDefense.Save;
 
 namespace TowerDefense.Towers;
 
@@ -11,9 +12,13 @@ public partial class Tower : Node2D
 
     private readonly List<Enemy> _enemiesInRange = new();
     private float _cooldown;
+    private int _bonusDamage;
 
     public override void _Ready()
     {
+        var progress = new LocalFileSaveProvider().Load();
+        _bonusDamage = progress.GetSkillLevel("dmg");
+
         var rangeArea = GetNode<Area2D>("RangeArea");
         rangeArea.AreaEntered += OnAreaEntered;
         rangeArea.AreaExited += OnAreaExited;
@@ -40,16 +45,18 @@ public partial class Tower : Node2D
 
     private void FireAt(Enemy target)
     {
+        var damage = Data.Damage + _bonusDamage;
+
         if (Data.ProjectileScene == null)
         {
-            target.TakeDamage(Data.Damage);
+            target.TakeDamage(damage);
             return;
         }
 
         var projectile = Data.ProjectileScene.Instantiate<Projectile>();
         projectile.GlobalPosition = GlobalPosition;
         projectile.Target = target;
-        projectile.Damage = Data.Damage;
+        projectile.Damage = damage;
         GetTree().CurrentScene.AddChild(projectile);
     }
 

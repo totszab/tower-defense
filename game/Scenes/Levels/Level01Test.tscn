@@ -47,5 +47,12 @@ offset_right = 300.0
 offset_bottom = 315.0
 text = "Kör vége! Gyűjtött arany: 0"
 
+[node name="BackButton" type="Button" parent="CanvasLayer"]
+offset_left = 10.0
+offset_top = 320.0
+offset_right = 170.0
+offset_bottom = 356.0
+text = "Vissza a főmenübe"
+
 [node name="SpawnTimer" type="Timer" parent="."]
 wait_time = 1.0

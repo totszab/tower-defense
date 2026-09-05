@@ -9,7 +9,8 @@ using TowerDefense.Towers;
 namespace TowerDefense.Levels;
 
 // Bootstrap smoke test only: hardcoded grid size, single hardcoded wave,
-// no full skill-tree/RunState wiring yet (that arrives ROADMAP Fázis 4).
+// no full RunState wiring yet (that arrives ROADMAP Fázis 4). Skill fa
+// hatások (hp/towers/currency/enemy) a PlayerProgress-ből olvasva.
 public partial class LevelBuild : Node2D
 {
     private const int Columns = 10;
@@ -18,9 +19,8 @@ public partial class LevelBuild : Node2D
 
     // Bootstrap values only — real per-level numbers belong in a Resource
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
-    private const int StartingHp = 10;
-    private const int MaxTowers = 2;
-    private const int EnemiesPerWave = 10;
+    private const int BaseStartingHp = 3;
+    private const int BaseEnemiesPerWave = 10;
     private const float SpawnInterval = 1.0f;
 
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
@@ -38,6 +38,11 @@ public partial class LevelBuild : Node2D
     private Label _resultLabel;
     private Button _startRoundButton;
     private Timer _spawnTimer;
+
+    private PlayerProgress _progress;
+    private int _maxTowers;
+    private int _currencyBonusPerKill;
+    private int _enemiesThisWave;
 
     private int _hp;
     private int _goldCollected;
@@ -57,10 +62,20 @@ public partial class LevelBuild : Node2D
         _startRoundButton.Pressed += OnStartRoundPressed;
         _spawnTimer.Timeout += OnSpawnTimerTimeout;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
+        GetNode<Button>("CanvasLayer/BackButton").Pressed += OnBackPressed;
 
         BuildTowerPalette();
 
-        _hp = StartingHp;
+        _progress = new LocalFileSaveProvider().Load();
+        // Bootstrap caveat: a "towers" node 0. szinten 0 slotot ad — friss
+        // (0 aranyas) mentésnél ez blokkolja az első tornyot. Lásd GAMEPLAY.md
+        // "Skill fa" baseline-koncepció, ezt még nem kötöttük vissza ide.
+        _maxTowers = _progress.GetSkillLevel("towers");
+        _currencyBonusPerKill = _progress.GetSkillLevel("currency");
+        var enemyLevel = _progress.GetSkillLevel("enemy");
+        _enemiesThisWave = Mathf.RoundToInt(BaseEnemiesPerWave * (1f + enemyLevel * 0.1f));
+
+        _hp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
         UpdateHpLabel();
         _resultLabel.Visible = false;
         QueueRedraw();
@@ -125,7 +140,7 @@ public partial class LevelBuild : Node2D
     {
         if (!_buildingEnabled) return;
         if (_selectedTowerScene == null) return;
-        if (_occupiedTiles.Count >= MaxTowers) return;
+        if (_occupiedTiles.Count >= _maxTowers) return;
 
         var tile = new Vector2I(
             Mathf.FloorToInt(localPos.X / GridConstants.TileSize),
@@ -177,7 +192,7 @@ public partial class LevelBuild : Node2D
     {
         SpawnEnemy();
         _enemiesSpawned++;
-        if (_enemiesSpawned >= EnemiesPerWave)
+        if (_enemiesSpawned >= _enemiesThisWave)
         {
             _spawnTimer.Stop();
         }
@@ -193,7 +208,7 @@ public partial class LevelBuild : Node2D
 
     private void OnEnemyKilled(Enemy enemy)
     {
-        _goldCollected += enemy.Data.Value;
+        _goldCollected += enemy.Data.Value + _currencyBonusPerKill;
         ResolveEnemy();
     }
 
@@ -213,7 +228,7 @@ public partial class LevelBuild : Node2D
     private void ResolveEnemy()
     {
         _enemiesResolved++;
-        if (_roundActive && _enemiesSpawned >= EnemiesPerWave && _enemiesResolved >= EnemiesPerWave)
+        if (_roundActive && _enemiesSpawned >= _enemiesThisWave && _enemiesResolved >= _enemiesThisWave)
         {
             EndRound();
         }
@@ -228,15 +243,13 @@ public partial class LevelBuild : Node2D
         _resultLabel.Text = $"Kör vége! Gyűjtött arany: {_goldCollected}";
         _resultLabel.Visible = true;
 
-        PersistGold(_goldCollected);
+        _progress.MetaCurrency += _goldCollected;
+        new LocalFileSaveProvider().Save(_progress);
     }
 
-    private static void PersistGold(int amount)
+    private void OnBackPressed()
     {
-        ISaveProvider save = new LocalFileSaveProvider();
-        var progress = save.Load();
-        progress.MetaCurrency += amount;
-        save.Save(progress);
+        GetTree().ChangeSceneToFile("res://Scenes/Main/MainMenu.tscn");
     }
 
     private void UpdateHpLabel()
