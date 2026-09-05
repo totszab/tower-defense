@@ -13,11 +13,15 @@ public partial class Tower : Node2D
     private readonly List<Enemy> _enemiesInRange = new();
     private float _cooldown;
     private int _bonusDamage;
+    private float _fireRateMultiplier = 1f;
 
     public override void _Ready()
     {
         var progress = new LocalFileSaveProvider().Load();
         _bonusDamage = progress.GetSkillLevel("dmg");
+        // TBD: ma minden toronyra hat (csak 1 típus van), amikor több torony
+        // típus lesz, ezt torony-specifikusra kell szűkíteni (GAMEPLAY.md).
+        _fireRateMultiplier = 1f + progress.GetSkillLevel("fireRate") * 0.05f;
 
         var rangeArea = GetNode<Area2D>("RangeArea");
         rangeArea.AreaEntered += OnAreaEntered;
@@ -40,7 +44,7 @@ public partial class Tower : Node2D
         }
 
         FireAt(_enemiesInRange[0]);
-        _cooldown = 1f / Data.FireRate;
+        _cooldown = 1f / (Data.FireRate * _fireRateMultiplier);
     }
 
     private void FireAt(Enemy target)

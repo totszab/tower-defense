@@ -67,13 +67,11 @@ public partial class LevelBuild : Node2D
         BuildTowerPalette();
 
         _progress = new LocalFileSaveProvider().Load();
-        // Bootstrap caveat: a "towers" node 0. szinten 0 slotot ad — friss
-        // (0 aranyas) mentésnél ez blokkolja az első tornyot. Lásd GAMEPLAY.md
-        // "Skill fa" baseline-koncepció, ezt még nem kötöttük vissza ide.
+        // "towers" node legalább 1-en indul (lásd PlayerProgress.GetSkillLevel), így
+        // egy friss mentésnél is lerakható az első torony.
         _maxTowers = _progress.GetSkillLevel("towers");
         _currencyBonusPerKill = _progress.GetSkillLevel("currency");
-        var enemyLevel = _progress.GetSkillLevel("enemy");
-        _enemiesThisWave = Mathf.RoundToInt(BaseEnemiesPerWave * (1f + enemyLevel * 0.1f));
+        _enemiesThisWave = BaseEnemiesPerWave;
 
         _hp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
         UpdateHpLabel();

@@ -19,9 +19,9 @@ offset_left = 445.0
 offset_top = 255.0
 offset_right = 555.0
 offset_bottom = 345.0
-text = "Sebzés
-Szint 0
-5 arany"
+text = "Tornyok
+Szint 1
+200 arany"
 
 [node name="UpButton" type="Button" parent="CanvasLayer"]
 offset_left = 445.0
@@ -37,18 +37,18 @@ offset_left = 445.0
 offset_top = 395.0
 offset_right = 555.0
 offset_bottom = 485.0
-text = "Tornyok
+text = "Tűzgyorsaság
 Szint 0
-50 arany"
+5 arany"
 
 [node name="LeftButton" type="Button" parent="CanvasLayer"]
 offset_left = 265.0
 offset_top = 255.0
 offset_right = 375.0
 offset_bottom = 345.0
-text = "Ellenség
+text = "Sebzés
 Szint 0
-50 arany"
+5 arany"
 
 [node name="RightButton" type="Button" parent="CanvasLayer"]
 offset_left = 625.0

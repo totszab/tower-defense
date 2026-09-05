@@ -5,21 +5,25 @@ using TowerDefense.Save;
 namespace TowerDefense.MainMenu;
 
 // Bootstrap skill fa: 5 node (hub + 4 irány), lásd GAMEPLAY.md "Skill fa".
-// Node id -> irány: dmg=hub, hp=fel, towers=le, currency=jobb, enemy=bal.
+// Node id -> irány: towers=hub, hp=fel, fireRate=le, currency=jobb, dmg=bal.
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
-    private static readonly int[] CurrencyEnemyCosts = { 50, 150, 300, 500, 1000 };
+    private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
     private static readonly int[] TowerCosts = { 50, 200, 500, 1000, 1500 };
+
+    // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
+    // sebzés/élet görbét használjuk placeholderként.
+    private static readonly int[] FireRateCosts = DmgHpCosts;
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()
     {
-        ["dmg"] = new Vector2(500, 300),
+        ["towers"] = new Vector2(500, 300),
         ["hp"] = new Vector2(500, 160),
-        ["towers"] = new Vector2(500, 440),
+        ["fireRate"] = new Vector2(500, 440),
         ["currency"] = new Vector2(680, 300),
-        ["enemy"] = new Vector2(320, 300),
+        ["dmg"] = new Vector2(320, 300),
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -31,11 +35,11 @@ public partial class MainMenu : Node2D
         _progress = new LocalFileSaveProvider().Load();
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
 
-        _buttons["dmg"] = GetNode<Button>("CanvasLayer/HubButton");
+        _buttons["towers"] = GetNode<Button>("CanvasLayer/HubButton");
         _buttons["hp"] = GetNode<Button>("CanvasLayer/UpButton");
-        _buttons["towers"] = GetNode<Button>("CanvasLayer/DownButton");
+        _buttons["fireRate"] = GetNode<Button>("CanvasLayer/DownButton");
         _buttons["currency"] = GetNode<Button>("CanvasLayer/RightButton");
-        _buttons["enemy"] = GetNode<Button>("CanvasLayer/LeftButton");
+        _buttons["dmg"] = GetNode<Button>("CanvasLayer/LeftButton");
 
         foreach (var entry in _buttons)
         {
@@ -53,7 +57,8 @@ public partial class MainMenu : Node2D
     {
         "dmg" or "hp" => DmgHpCosts,
         "towers" => TowerCosts,
-        _ => CurrencyEnemyCosts,
+        "fireRate" => FireRateCosts,
+        _ => CurrencyCosts,
     };
 
     private static string LabelFor(string nodeId) => nodeId switch
@@ -62,7 +67,7 @@ public partial class MainMenu : Node2D
         "hp" => "Élet",
         "towers" => "Tornyok",
         "currency" => "Arany",
-        "enemy" => "Ellenség",
+        "fireRate" => "Tűzgyorsaság",
         _ => nodeId,
     };
 
@@ -103,10 +108,10 @@ public partial class MainMenu : Node2D
 
     public override void _Draw()
     {
-        var hub = NodePositions["dmg"];
+        var hub = NodePositions["towers"];
         foreach (var entry in NodePositions)
         {
-            if (entry.Key == "dmg") continue;
+            if (entry.Key == "towers") continue;
             DrawLine(hub, entry.Value, new Color(1f, 1f, 1f, 0.5f), 3f);
         }
     }

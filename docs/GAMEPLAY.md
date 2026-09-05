@@ -69,15 +69,15 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 | Node | Irány | Hatás | Ár szintenként (0→1, 1→2, ...) |
 |---|---|---|---|
-| Sebzés (`dmg`) | Hub (közép) | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
+| Tornyok (`towers`) | Hub (közép) | Overall torony-slot szám (hányat rakhatsz le egyszerre) | **1. szinten indul alapból** (baseline), 200 / 500 / 1000 / 1500 a 2-5. szintekhez |
 | Élet (`hp`) | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
-| Tornyok (`towers`) | Le | Overall torony-slot szám (hányat rakhatsz le egyszerre); 1. szinten 1 slot | 50 / 200 / 500 / 1000 / 1500 |
+| Tűzgyorsaság (`fireRate`) | Le | Az (egyelőre egyetlen) toronytípus tűzgyorsasága +5%/szint. Ez az ág a torony-specifikus upgrade-ek kezdete — később minden toronytípusnak lehet saját ilyen ága. | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
 | Arany (`currency`) | Jobb | +1 arany minden megölt ellenségért | 50 / 150 / 300 / 500 / 1000 |
-| Ellenség (`enemy`) | Bal | +10% hullám-méret (több, de nem erősebb ellenség — extra farmolási lehetőség) | 50 / 150 / 300 / 500 / 1000 |
+| Sebzés (`dmg`) | Bal | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
 
-**Ismert nyitott probléma**: a `towers` node 0. szinten 0 slotot ad — egy teljesen friss (0 aranyas) mentésnél ez blokkolná az első torony lerakását, tehát az arany-szerzést is. Ez ellentmond a korábban rögzített "baseline" elvnek (1 torony/1 slot skill fától függetlenül jár) — ezt még nem kötöttük vissza, TBD mielőtt ez a rendszer "friss játékos" élményre kerül.
+**Baseline megoldva**: a `towers` node alapból (friss mentésnél is) legalább 1. szinten van, tehát mindig lerakható az első torony — a korábbi verzióban felmerült "friss játékos beszorul" probléma ezzel elhárult.
 
-**Eszköz/képesség ág**: egyelőre nincs az 5 node között, a fenti 4 irány + hub tölti be az első kört. Ha később bővül a fa (2. szintű node-ok az egyes ágak végén), ide kerülhet.
+**Eszköz/képesség ág**: egyelőre nincs a fenti 5 node között. A `fireRate` node jelzi az irányt (torony-specifikus ág), de a teljes "eszköz/képesség" kategória (GAMEPLAY.md korábbi tervei) még nyitott.
 
 **Fontos, rögzített elv**: a globális stat ág (élet, sebzés, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra.
 
