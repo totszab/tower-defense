@@ -65,17 +65,19 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 ## Skill fa
 
-**Vegyes fa**: egy központi hub node + 4 irányba induló ág, mindegyik vonallal összekötve a hub-bal (vizuálisan is). Minden node 0-5 szintig fejleszthető, minden szintlépésnek ára van (meta-arany).
+**Vegyes fa**: egy központi hub node + 4 irányba induló ág, mindegyik vonallal összekötve a hub-bal (vizuálisan is). Minden node 0-5 szintig fejleszthető, minden szintlépésnek ára van (meta-arany). **A node feliratok angolul jelennek meg a UI-ban** (Tower Number, Health, Attack Speed, Gold, Damage), a dokumentáció itt magyarul hivatkozik rájuk.
 
-| Node | Irány | Hatás | Ár szintenként (0→1, 1→2, ...) |
-|---|---|---|---|
-| Tornyok (`towers`) | Hub (közép) | Overall torony-slot szám (hányat rakhatsz le egyszerre) | **1. szinten indul alapból** (baseline), 200 / 500 / 1000 / 1500 a 2-5. szintekhez |
-| Élet (`hp`) | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
-| Tűzgyorsaság (`fireRate`) | Le | Az (egyelőre egyetlen) toronytípus tűzgyorsasága +5%/szint. Ez az ág a torony-specifikus upgrade-ek kezdete — később minden toronytípusnak lehet saját ilyen ága. | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
-| Arany (`currency`) | Jobb | +1 arany minden megölt ellenségért | 50 / 150 / 300 / 500 / 1000 |
-| Sebzés (`dmg`) | Bal | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
+| Node (UI felirat) | id | Irány | Hatás / szint | Ár (1→2, 2→3, 3→4, 4→5) |
+|---|---|---|---|---|
+| Tower Number | `towers` | Hub (közép) | Overall torony-slot szám; **1. szinten indul alapból** (baseline) | 100 / 250 / 500 / 750 |
+| Health | `hp` | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
+| Attack Speed | `fireRate` | Le | Az (egyelőre egyetlen) toronytípus tűzgyorsasága +5%/szint. Ez az ág a torony-specifikus upgrade-ek kezdete — később minden toronytípusnak lehet saját ilyen ága. | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
+| Gold | `currency` | Jobb | +10% szerzett arany minden megölt ellenségért (szorzó, nem fix bónusz) | 50 / 150 / 300 / 500 / 1000 |
+| Damage | `dmg` | Bal | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
 
-**Baseline megoldva**: a `towers` node alapból (friss mentésnél is) legalább 1. szinten van, tehát mindig lerakható az első torony — a korábbi verzióban felmerült "friss játékos beszorul" probléma ezzel elhárult.
+**Baseline megoldva**: a `towers` node alapból (friss mentésnél is) legalább 1. szinten van, tehát mindig lerakható az első torony — a korábbi verzióban felmerült "friss játékos beszorul" probléma ezzel elhárult. Az árlista emiatt csak 4 lépést tartalmaz (1→5), nincs "0→1" ár.
+
+**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL" (pl. `+1 damage / Cost: 50 gold`).
 
 **Eszköz/képesség ág**: egyelőre nincs a fenti 5 node között. A `fireRate` node jelzi az irányt (torony-specifikus ág), de a teljes "eszköz/képesség" kategória (GAMEPLAY.md korábbi tervei) még nyitott.
 

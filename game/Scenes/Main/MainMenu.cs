@@ -11,7 +11,10 @@ public partial class MainMenu : Node2D
     private const int MaxLevel = 5;
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
-    private static readonly int[] TowerCosts = { 50, 200, 500, 1000, 1500 };
+
+    // Index 0 sosem kerül lekérdezésre — a "towers" mindig >=1 szinten van
+    // (PlayerProgress.GetSkillLevel baseline). 1->2, 2->3, 3->4, 4->5 árak.
+    private static readonly int[] TowerCosts = { 0, 100, 250, 500, 750 };
 
     // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
     // sebzés/élet görbét használjuk placeholderként.
@@ -24,6 +27,16 @@ public partial class MainMenu : Node2D
         ["fireRate"] = new Vector2(500, 440),
         ["currency"] = new Vector2(680, 300),
         ["dmg"] = new Vector2(320, 300),
+    };
+
+    // Tooltip (hover) szöveg: az egy szintnyi (marginális) hatás, angolul.
+    private static readonly Dictionary<string, string> NodePerLevelText = new()
+    {
+        ["towers"] = "+1 tower",
+        ["hp"] = "+2 health",
+        ["currency"] = "+10% gold",
+        ["dmg"] = "+1 damage",
+        ["fireRate"] = "+5% attack speed",
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -61,14 +74,15 @@ public partial class MainMenu : Node2D
         _ => CurrencyCosts,
     };
 
-    private static string LabelFor(string nodeId) => nodeId switch
+    // A node kompakt (hover nélküli) szövege: a JELENLEGI kumulált hatás + szint.
+    private static string CumulativeText(string nodeId, int level) => nodeId switch
     {
-        "dmg" => "Sebzés",
-        "hp" => "Élet",
-        "towers" => "Tornyok",
-        "currency" => "Arany",
-        "fireRate" => "Tűzgyorsaság",
-        _ => nodeId,
+        "towers" => $"{level} towers",
+        "hp" => $"+{level * 2} health",
+        "currency" => $"+{level * 10}% gold",
+        "dmg" => $"+{level} damage",
+        "fireRate" => $"+{level * 5}% attack speed",
+        _ => "",
     };
 
     private void OnNodePressed(string nodeId)
@@ -88,16 +102,19 @@ public partial class MainMenu : Node2D
 
     private void RefreshUi()
     {
-        _goldLabel.Text = $"Arany: {_progress.MetaCurrency}";
+        _goldLabel.Text = $"Gold: {_progress.MetaCurrency}";
 
         foreach (var entry in _buttons)
         {
             var nodeId = entry.Key;
+            var button = entry.Value;
             var level = _progress.GetSkillLevel(nodeId);
             var costs = CostsFor(nodeId);
-            entry.Value.Text = level >= MaxLevel
-                ? $"{LabelFor(nodeId)}\nMAX (5)"
-                : $"{LabelFor(nodeId)}\nSzint {level}\n{costs[level]} arany";
+
+            button.Text = $"{CumulativeText(nodeId, level)}, {level}/{MaxLevel}";
+            button.TooltipText = level >= MaxLevel
+                ? $"{NodePerLevelText[nodeId]}\nMAX LEVEL"
+                : $"{NodePerLevelText[nodeId]}\nCost: {costs[level]} gold";
         }
     }
 

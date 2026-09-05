@@ -41,7 +41,7 @@ public partial class LevelBuild : Node2D
 
     private PlayerProgress _progress;
     private int _maxTowers;
-    private int _currencyBonusPerKill;
+    private float _goldMultiplier;
     private int _enemiesThisWave;
 
     private int _hp;
@@ -70,7 +70,7 @@ public partial class LevelBuild : Node2D
         // "towers" node legalább 1-en indul (lásd PlayerProgress.GetSkillLevel), így
         // egy friss mentésnél is lerakható az első torony.
         _maxTowers = _progress.GetSkillLevel("towers");
-        _currencyBonusPerKill = _progress.GetSkillLevel("currency");
+        _goldMultiplier = 1f + _progress.GetSkillLevel("currency") * 0.10f;
         _enemiesThisWave = BaseEnemiesPerWave;
 
         _hp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
@@ -206,7 +206,7 @@ public partial class LevelBuild : Node2D
 
     private void OnEnemyKilled(Enemy enemy)
     {
-        _goldCollected += enemy.Data.Value + _currencyBonusPerKill;
+        _goldCollected += Mathf.RoundToInt(enemy.Data.Value * _goldMultiplier);
         ResolveEnemy();
     }
 
@@ -219,6 +219,13 @@ public partial class LevelBuild : Node2D
             _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(enemy.Data.Dmg));
             UpdateHpLabel();
             enemy.QueueFree();
+
+            if (_hp <= 0)
+            {
+                EndRound(won: false);
+                return;
+            }
+
             ResolveEnemy();
         }
     }
@@ -228,17 +235,27 @@ public partial class LevelBuild : Node2D
         _enemiesResolved++;
         if (_roundActive && _enemiesSpawned >= _enemiesThisWave && _enemiesResolved >= _enemiesThisWave)
         {
-            EndRound();
+            EndRound(won: true);
         }
     }
 
-    private void EndRound()
+    private void EndRound(bool won)
     {
+        if (!_roundActive) return;
+
         _roundActive = false;
+        _spawnTimer.Stop();
         SetBuildingEnabled(true);
         _startRoundButton.Disabled = false;
 
-        _resultLabel.Text = $"Kör vége! Gyűjtött arany: {_goldCollected}";
+        foreach (var enemy in _enemies.GetChildren())
+        {
+            enemy.QueueFree();
+        }
+
+        _resultLabel.Text = won
+            ? $"Kör vége! Gyűjtött arany: {_goldCollected}"
+            : $"Vereség! Gyűjtött arany: {_goldCollected}";
         _resultLabel.Visible = true;
 
         _progress.MetaCurrency += _goldCollected;
