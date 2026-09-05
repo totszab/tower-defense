@@ -15,12 +15,13 @@ public partial class LevelBuild : Node2D
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
-    [Export] public PackedScene TowerScene { get; set; }
+    [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
 
     private readonly HashSet<Vector2I> _occupiedTiles = new();
     private Node2D _towers;
     private Node2D _enemies;
+    private PackedScene _selectedTowerScene;
 
     public override void _Ready()
     {
@@ -28,6 +29,7 @@ public partial class LevelBuild : Node2D
         _enemies = GetNode<Node2D>("Enemies");
         GetNode<Button>("CanvasLayer/SpawnButton").Pressed += OnSpawnPressed;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
+        BuildTowerPalette();
         QueueRedraw();
     }
 
@@ -39,8 +41,39 @@ public partial class LevelBuild : Node2D
         }
     }
 
+    private void BuildTowerPalette()
+    {
+        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
+        var palette = new VBoxContainer { Position = new Vector2(700, 10) };
+        canvasLayer.AddChild(palette);
+
+        var group = new ButtonGroup();
+
+        foreach (var towerScene in AvailableTowers)
+        {
+            // Instantiate off-tree just to read the default sprite for the icon, then discard it.
+            var preview = towerScene.Instantiate<Node2D>();
+            var icon = preview.GetNode<Sprite2D>("Sprite2D").Texture;
+            preview.QueueFree();
+
+            var button = new TextureButton
+            {
+                TextureNormal = icon,
+                ToggleMode = true,
+                ButtonGroup = group,
+                CustomMinimumSize = new Vector2(64, 64),
+                StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered,
+                IgnoreTextureSize = true,
+            };
+            button.Pressed += () => _selectedTowerScene = towerScene;
+            palette.AddChild(button);
+        }
+    }
+
     private void TryPlaceTower(Vector2 localPos)
     {
+        if (_selectedTowerScene == null) return;
+
         var tile = new Vector2I(
             Mathf.FloorToInt(localPos.X / GridConstants.TileSize),
             Mathf.FloorToInt(localPos.Y / GridConstants.TileSize));
@@ -49,7 +82,7 @@ public partial class LevelBuild : Node2D
         if (Array.IndexOf(BuildableRows, tile.Y) < 0) return;
         if (_occupiedTiles.Contains(tile)) return;
 
-        var tower = TowerScene.Instantiate<Tower>();
+        var tower = _selectedTowerScene.Instantiate<Tower>();
         tower.Position = new Vector2(
             (tile.X + 0.5f) * GridConstants.TileSize,
             (tile.Y + 0.5f) * GridConstants.TileSize);

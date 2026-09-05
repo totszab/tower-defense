@@ -9,7 +9,7 @@ size = Vector2(64, 64)
 
 [node name="Level01Test" type="Node2D"]
 script = ExtResource("1")
-TowerScene = ExtResource("2")
+AvailableTowers = Array[PackedScene]([ExtResource("2")])
 EnemyScene = ExtResource("3")
 
 [node name="Towers" type="Node2D" parent="."]
