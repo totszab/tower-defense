@@ -6,6 +6,9 @@ namespace TowerDefense.Enemies;
 
 public partial class Enemy : Area2D
 {
+    [Signal]
+    public delegate void DiedEventHandler();
+
     [Export] public EnemyData Data { get; set; }
 
     private float _currentHp;
@@ -27,6 +30,7 @@ public partial class Enemy : Area2D
         _currentHp -= amount;
         if (_currentHp <= 0f)
         {
+            EmitSignal(SignalName.Died);
             QueueFree();
         }
     }

@@ -3,21 +3,25 @@ using System.Collections.Generic;
 using Godot;
 using TowerDefense.Core;
 using TowerDefense.Enemies;
+using TowerDefense.Save;
 using TowerDefense.Towers;
 
 namespace TowerDefense.Levels;
 
-// Bootstrap smoke test only: hardcoded grid size, no slot-limit/skill-tree
-// gating yet (that arrives with SkillTreeManager, ROADMAP Fázis 4).
+// Bootstrap smoke test only: hardcoded grid size, single hardcoded wave,
+// no full skill-tree/RunState wiring yet (that arrives ROADMAP Fázis 4).
 public partial class LevelBuild : Node2D
 {
     private const int Columns = 10;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
-    // Bootstrap value only — real starting HP belongs in a per-level Resource
+    // Bootstrap values only — real per-level numbers belong in a Resource
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
     private const int StartingHp = 10;
+    private const int MaxTowers = 2;
+    private const int EnemiesPerWave = 10;
+    private const float SpawnInterval = 1.0f;
 
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
@@ -25,21 +29,40 @@ public partial class LevelBuild : Node2D
     private readonly HashSet<Vector2I> _occupiedTiles = new();
     private Node2D _towers;
     private Node2D _enemies;
+    private VBoxContainer _towerPalette;
+    private TextureButton _selectedButton;
     private PackedScene _selectedTowerScene;
+    private bool _buildingEnabled = true;
+
     private Label _hpLabel;
+    private Label _resultLabel;
+    private Button _startRoundButton;
+    private Timer _spawnTimer;
+
     private int _hp;
+    private int _goldCollected;
+    private int _enemiesSpawned;
+    private int _enemiesResolved;
+    private bool _roundActive;
 
     public override void _Ready()
     {
         _towers = GetNode<Node2D>("Towers");
         _enemies = GetNode<Node2D>("Enemies");
         _hpLabel = GetNode<Label>("CanvasLayer/HpLabel");
-        GetNode<Button>("CanvasLayer/SpawnButton").Pressed += OnSpawnPressed;
+        _resultLabel = GetNode<Label>("CanvasLayer/ResultLabel");
+        _startRoundButton = GetNode<Button>("CanvasLayer/StartRoundButton");
+        _spawnTimer = GetNode<Timer>("SpawnTimer");
+
+        _startRoundButton.Pressed += OnStartRoundPressed;
+        _spawnTimer.Timeout += OnSpawnTimerTimeout;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
+
         BuildTowerPalette();
 
         _hp = StartingHp;
         UpdateHpLabel();
+        _resultLabel.Visible = false;
         QueueRedraw();
     }
 
@@ -54,10 +77,8 @@ public partial class LevelBuild : Node2D
     private void BuildTowerPalette()
     {
         var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
-        var palette = new VBoxContainer { Position = new Vector2(700, 10) };
-        canvasLayer.AddChild(palette);
-
-        var group = new ButtonGroup();
+        _towerPalette = new VBoxContainer { Position = new Vector2(700, 10) };
+        canvasLayer.AddChild(_towerPalette);
 
         foreach (var towerScene in AvailableTowers)
         {
@@ -69,30 +90,42 @@ public partial class LevelBuild : Node2D
             var button = new TextureButton
             {
                 TextureNormal = icon,
-                ToggleMode = true,
-                ButtonGroup = group,
                 CustomMinimumSize = new Vector2(64, 64),
                 StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered,
                 IgnoreTextureSize = true,
                 Modulate = Colors.White,
             };
-            // Toggled (not Pressed) fires for both the newly selected AND the
-            // previously selected button in the group, so the old one visibly un-highlights.
-            button.Toggled += pressed =>
-            {
-                button.Modulate = pressed ? new Color(1f, 0.95f, 0.4f) : Colors.White;
-                if (pressed)
-                {
-                    _selectedTowerScene = towerScene;
-                }
-            };
-            palette.AddChild(button);
+            button.Pressed += () => OnTowerButtonPressed(button, towerScene);
+            _towerPalette.AddChild(button);
         }
+    }
+
+    private void OnTowerButtonPressed(TextureButton button, PackedScene towerScene)
+    {
+        if (_selectedButton == button)
+        {
+            // Clicking the already-selected tower again deselects it.
+            button.Modulate = Colors.White;
+            _selectedButton = null;
+            _selectedTowerScene = null;
+            return;
+        }
+
+        if (_selectedButton != null)
+        {
+            _selectedButton.Modulate = Colors.White;
+        }
+
+        button.Modulate = new Color(1f, 0.95f, 0.4f);
+        _selectedButton = button;
+        _selectedTowerScene = towerScene;
     }
 
     private void TryPlaceTower(Vector2 localPos)
     {
+        if (!_buildingEnabled) return;
         if (_selectedTowerScene == null) return;
+        if (_occupiedTiles.Count >= MaxTowers) return;
 
         var tile = new Vector2I(
             Mathf.FloorToInt(localPos.X / GridConstants.TileSize),
@@ -110,23 +143,100 @@ public partial class LevelBuild : Node2D
         _occupiedTiles.Add(tile);
     }
 
-    private void OnSpawnPressed()
+    private void SetBuildingEnabled(bool enabled)
+    {
+        _buildingEnabled = enabled;
+        foreach (var child in _towerPalette.GetChildren())
+        {
+            if (child is BaseButton button)
+            {
+                button.Disabled = !enabled;
+            }
+        }
+    }
+
+    private void OnStartRoundPressed()
+    {
+        if (_roundActive) return;
+
+        _roundActive = true;
+        _goldCollected = 0;
+        _enemiesSpawned = 0;
+        _enemiesResolved = 0;
+        _resultLabel.Visible = false;
+        SetBuildingEnabled(false);
+        _startRoundButton.Disabled = true;
+
+        SpawnEnemy();
+        _enemiesSpawned = 1;
+        _spawnTimer.WaitTime = SpawnInterval;
+        _spawnTimer.Start();
+    }
+
+    private void OnSpawnTimerTimeout()
+    {
+        SpawnEnemy();
+        _enemiesSpawned++;
+        if (_enemiesSpawned >= EnemiesPerWave)
+        {
+            _spawnTimer.Stop();
+        }
+    }
+
+    private void SpawnEnemy()
     {
         var enemy = EnemyScene.Instantiate<Enemy>();
         enemy.Position = new Vector2(0, (PathRow + 0.5f) * GridConstants.TileSize);
+        enemy.Died += () => OnEnemyKilled(enemy);
         _enemies.AddChild(enemy);
+    }
+
+    private void OnEnemyKilled(Enemy enemy)
+    {
+        _goldCollected += enemy.Data.Value;
+        ResolveEnemy();
     }
 
     private void OnGoalEntered(Area2D area)
     {
         if (area is Enemy enemy)
         {
-            // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba költözik,
-            // amikor a teljes statisztika/skill fa kör megépül.
+            // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba
+            // költözik, amikor a teljes statisztika/skill fa kör megépül.
             _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(enemy.Data.Dmg));
             UpdateHpLabel();
             enemy.QueueFree();
+            ResolveEnemy();
         }
+    }
+
+    private void ResolveEnemy()
+    {
+        _enemiesResolved++;
+        if (_roundActive && _enemiesSpawned >= EnemiesPerWave && _enemiesResolved >= EnemiesPerWave)
+        {
+            EndRound();
+        }
+    }
+
+    private void EndRound()
+    {
+        _roundActive = false;
+        SetBuildingEnabled(true);
+        _startRoundButton.Disabled = false;
+
+        _resultLabel.Text = $"Kör vége! Gyűjtött arany: {_goldCollected}";
+        _resultLabel.Visible = true;
+
+        PersistGold(_goldCollected);
+    }
+
+    private static void PersistGold(int amount)
+    {
+        ISaveProvider save = new LocalFileSaveProvider();
+        var progress = save.Load();
+        progress.MetaCurrency += amount;
+        save.Save(progress);
     }
 
     private void UpdateHpLabel()

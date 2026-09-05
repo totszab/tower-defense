@@ -26,12 +26,12 @@ shape = SubResource("GoalShape")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="SpawnButton" type="Button" parent="CanvasLayer"]
+[node name="StartRoundButton" type="Button" parent="CanvasLayer"]
 offset_left = 10.0
 offset_top = 210.0
 offset_right = 170.0
 offset_bottom = 246.0
-text = "Ellenség indítása"
+text = "Kör indítása"
 
 [node name="HpLabel" type="Label" parent="CanvasLayer"]
 offset_left = 10.0
@@ -39,3 +39,13 @@ offset_top = 250.0
 offset_right = 170.0
 offset_bottom = 280.0
 text = "HP: 10"
+
+[node name="ResultLabel" type="Label" parent="CanvasLayer"]
+offset_left = 10.0
+offset_top = 285.0
+offset_right = 300.0
+offset_bottom = 315.0
+text = "Kör vége! Gyűjtött arany: 0"
+
+[node name="SpawnTimer" type="Timer" parent="."]
+wait_time = 1.0
