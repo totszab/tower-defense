@@ -1,6 +1,7 @@
 # Godot
 .godot/
 .import/
+/game/android/
 export.cfg
 export_presets.cfg
 *.translation
