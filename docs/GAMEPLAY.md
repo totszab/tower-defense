@@ -65,18 +65,21 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 ## Skill fa
 
-**Vegyes fa**: globális ágak + torony-specifikus ágak. Minden node-nak van ár (meta-arany) és előfeltétele (előző node(ok) unlockolva).
+**Vegyes fa**: egy központi hub node + 4 irányba induló ág, mindegyik vonallal összekötve a hub-bal (vizuálisan is). Minden node 0-5 szintig fejleszthető, minden szintlépésnek ára van (meta-arany).
 
-| Ág típusa | Példa node-ok | Hatás |
-|---|---|---|
-| Globális stat | `+1 kezdő élet`, `+5% arany gyűjtés`, `+1 torony slot` | Minden pályára/toronyra hat |
-| Torony unlock | `Nyílvető torony feloldása` | Új torony típus válik elérhetővé a build fázisban |
-| Torony-specifikus upgrade | `Nyílvető torony: +damage`, `Nyílvető torony: +range` | Csak az adott torony típusra hat |
-| Eszköz/képesség (**TBD — tartalom nyitott**) | ? | Feltehetően harc közben aktiválható, korlátozott használatú kiegészítő; pontos definíció még nincs lefektetve |
+| Node | Irány | Hatás | Ár szintenként (0→1, 1→2, ...) |
+|---|---|---|---|
+| Sebzés (`dmg`) | Hub (közép) | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
+| Élet (`hp`) | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
+| Tornyok (`towers`) | Le | Overall torony-slot szám (hányat rakhatsz le egyszerre); 1. szinten 1 slot | 50 / 200 / 500 / 1000 / 1500 |
+| Arany (`currency`) | Jobb | +1 arany minden megölt ellenségért | 50 / 150 / 300 / 500 / 1000 |
+| Ellenség (`enemy`) | Bal | +10% hullám-méret (több, de nem erősebb ellenség — extra farmolási lehetőség) | 50 / 150 / 300 / 500 / 1000 |
 
-TBD: pontos node-lista, árak, fa-alak (mennyi ág, mennyi mélység), pontos "torony slot" maximum értéke.
+**Ismert nyitott probléma**: a `towers` node 0. szinten 0 slotot ad — egy teljesen friss (0 aranyas) mentésnél ez blokkolná az első torony lerakását, tehát az arany-szerzést is. Ez ellentmond a korábban rögzített "baseline" elvnek (1 torony/1 slot skill fától függetlenül jár) — ezt még nem kötöttük vissza, TBD mielőtt ez a rendszer "friss játékos" élményre kerül.
 
-**Fontos, rögzített elv**: a globális stat ág (élet, arany-szorzó, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra. A tartalombővítés (Fázis 3) során ez ne sikkadjon el a torony-specifikus ágak mellett.
+**Eszköz/képesség ág**: egyelőre nincs az 5 node között, a fenti 4 irány + hub tölti be az első kört. Ha később bővül a fa (2. szintű node-ok az egyes ágak végén), ide kerülhet.
+
+**Fontos, rögzített elv**: a globális stat ág (élet, sebzés, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra.
 
 **Induló állapot (Fázis 2 bootstrap, "üres" skill fa)**: a játékos 0 meta-arannyal indul, semmi nincs megvásárolva a fán. A skill fától **függetlenül**, alapból (baseline, nem unlock-kötött) rendelkezésre áll:
 - 1 torony típus (lásd lent)

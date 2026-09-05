@@ -59,10 +59,15 @@ A cél: kezdetben ingyenes assetekkel dolgozunk, később lecserélhető legyen 
 
 ## Skill fa adatmodell
 
-- `SkillNodeData : Resource` — mezők: `Id`, `Cost` (meta-arany), `Prerequisites (SkillNodeData[])`, `EffectType` (enum: `GlobalStat`, `TowerUnlock`, `TowerUpgrade`, `Ability`), `EffectValue`, `TargetTowerId` (ha torony-specifikus)
-- A fa maga adatból épül fel (a `Prerequisites` referenciák alkotják a gráfot), nincs kódba égetett fa-struktúra
-- `SkillTreeManager` (autoload): felelős a node-ok unlock állapotáért, az elkölthető egyenlegért, és azért, hogy a build fázisban mely torony-típusok/hány slot érhető el — ez olvassa a `PlayerProgress`-t (lásd Mentésrendszer)
-- **Baseline (skill fától független) értékek**: `BaseTowerSlots = 1`, `BaseUnlockedTowerIds = [starter torony id]` — ezek nem `SkillNodeData` unlockok, hanem a `SkillTreeManager`-be égetett minimum, amin a skill fa node-jai felül bővítenek. Ez teszi lehetővé az "üres fa" bootstrap állapotot (GAMEPLAY.md).
+**Jelenlegi (bootstrap) implementáció** — egyszerűbb, mint az eredetileg tervezett `SkillNodeData` Resource-gráf, mert egyelőre csak 5, fixen 0-5 szintig fejleszthető node létezik:
+
+- `PlayerProgress.SkillLevels : Dictionary<string, int>` — node id (`"dmg"`, `"hp"`, `"towers"`, `"currency"`, `"enemy"`) → jelenlegi szint. Ez perzisztálódik a `LocalFileSaveProvider`-en keresztül.
+- A node-ok id-ja, ára (szintenkénti tömb), hatása és pozíciója **kódba égetve** a `MainMenu.cs`-ben (`CostsFor`, `NodePositions`), nem külön Resource-fájlokban.
+- A hatásokat a fogyasztó kód (`Tower.cs`, `LevelBuild.cs`) közvetlenül olvassa: mindegyik saját `_Ready()`-jében betölti a `PlayerProgress`-t és kiszámolja a rá vonatkozó bónuszt (`GetSkillLevel("dmg")` stb.) — nincs központi `SkillTreeManager` autoload még.
+
+**Eredeti terv (később, ha a fa bővül túl ezen az 5 node-on)**: `SkillNodeData : Resource` mezőkkel (`Id`, `Cost`, `Prerequisites`, `EffectType` enum, `EffectValue`, `TargetTowerId`), adatvezérelt gráf-struktúra, és egy `SkillTreeManager` autoload, ami egy helyen number olvassa a `PlayerProgress`-t ahelyett, hogy minden fogyasztó külön töltené be a mentést. Erre akkor érdemes átállni, amikor a node-szám és a torony-specifikus upgrade-ek (GAMEPLAY.md "Skill fa") megjelennek — a jelenlegi kódba-égetett megoldás ennyi node-ra még átlátható, de nem skálázódik jól.
+
+- **Baseline (skill fától független) hiány**: az eredeti terv szerint kellene egy `BaseTowerSlots`/`BaseUnlockedTowerIds` minimum a skill fától függetlenül (hogy egy friss játékos ne szoruljon be) — ez a bootstrap implementációban **még nincs bekötve** (lásd GAMEPLAY.md "Skill fa" ismert probléma).
 
 ## Kommunikáció / komponensek közötti kapcsolat
 
@@ -79,12 +84,13 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 - Interfész mögé rejtve: `ISaveProvider` (`Save(SaveData)`, `Load() : SaveData`, `HasSave() : bool`)
 - **v1 implementáció**: `LocalFileSaveProvider` — JSON szerializáció a `user://save.json`-ba (Godot userdata mappa, OS-független útvonal)
 - **Later (opcionális)**: `SteamCloudSaveProvider` — ugyanaz az interfész, csak Steamworks API hívás mögötte. A hívó kód (`GameState`, menük) nem tud/nem érdekli melyik implementáció fut.
-- `PlayerProgress` (a mentett `SaveData` gyökér-objektuma) tartalma:
+- `PlayerProgress` (a mentett `SaveData` gyökér-objektuma) — **implementált mezők**:
   - `MetaCurrency` (int) — elkölthető skill-fa arany egyenleg
-  - `UnlockedSkillNodeIds` (string lista) — mely skill-node-ok vannak unlockolva
-  - `HighestUnlockedLevelIndex` (int) — meddig jutott a játékos lineárisan (ez határozza meg mit indít a [Folytatás] gomb, és mely pályák érhetők el a [Pálya választó]-ban)
-  - `LevelPresets` (Dictionary<levelId, PresetData>) — pályánként **egy** mentett elrendezés (`PresetData`: torony-típus + pozíció lista), felülírásos mentéssel
-  - Globális beállítások (hangerő stb.)
+  - `SkillLevels` (Dictionary<string, int>) — node id → szint (0-5), lásd "Skill fa adatmodell"
+  - **Még nem implementált** (eredeti terv, ROADMAP Fázis 4-hez kötve):
+    - `HighestUnlockedLevelIndex` (int) — meddig jutott a játékos lineárisan ([Folytatás] gomb, [Pálya választó])
+    - `LevelPresets` (Dictionary<levelId, PresetData>) — pályánként egy mentett torony-elrendezés
+    - Globális beállítások (hangerő stb.)
 - Amit **szándékosan NEM** mentünk state-ként: legjobb eredmény/statisztika pályánként — a statisztika popup egy adott futás lezárása, nem perzisztens ranglista (nincs ilyen elvárás egyelőre)
 
 ## Nehézség-skálázás
