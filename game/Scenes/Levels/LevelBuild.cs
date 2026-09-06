@@ -44,6 +44,7 @@ public partial class LevelBuild : Node2D
     private Label _enemyCountLabel;
     private Label _towerCountLabel;
     private Button _startRoundButton;
+    private Button _backButton;
     private Timer _spawnTimer;
 
     private Panel _statsPopup;
@@ -75,6 +76,7 @@ public partial class LevelBuild : Node2D
         _enemyCountLabel = GetNode<Label>("CanvasLayer/EnemyPanel/EnemyCountLabel");
         _towerCountLabel = GetNode<Label>("CanvasLayer/RightPanel/TowerCountLabel");
         _startRoundButton = GetNode<Button>("CanvasLayer/RightPanel/StartRoundButton");
+        _backButton = GetNode<Button>("CanvasLayer/RightPanel/BackButton");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
 
         _statsPopup = GetNode<Panel>("CanvasLayer/StatsPopup");
@@ -82,10 +84,10 @@ public partial class LevelBuild : Node2D
         _statsGoldLabel = GetNode<Label>("CanvasLayer/StatsPopup/RoundGoldLabel");
         _damageListContainer = GetNode<VBoxContainer>("CanvasLayer/StatsPopup/DamageList");
 
-        _startRoundButton.Pressed += OnStartRoundPressed;
+        _startRoundButton.Pressed += OnStartOrRetreatPressed;
         _spawnTimer.Timeout += OnSpawnTimerTimeout;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
-        GetNode<Button>("CanvasLayer/RightPanel/BackButton").Pressed += OnBackPressed;
+        _backButton.Pressed += OnBackPressed;
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
         var dmgToggle = GetNode<Button>("CanvasLayer/DamageTogglePanel/DamageToggleButton");
         dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
@@ -119,15 +121,16 @@ public partial class LevelBuild : Node2D
         var enemyTexture = enemyPreview.GetNode<Sprite2D>("Sprite2D").Texture;
         enemyPreview.QueueFree();
 
+        // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT kell
+        // állnia, különben a minimum-méret a natív (64x64) textúra alapján rögzül
+        // (KeepSize az alapértelmezett), és a Size beállítása arra clampelődik.
         var enemyIcon = new TextureRect
         {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
             Texture = enemyTexture,
             Position = new Vector2(230, 6),
             Size = new Vector2(26, 26),
-            // IgnoreSize: enélkül a TextureRect a textúra natív (64x64) méretét
-            // venné minimum méretnek, és kilógna a panelból.
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
         };
         GetNode<Control>("CanvasLayer/EnemyPanel").AddChild(enemyIcon);
 
@@ -229,10 +232,22 @@ public partial class LevelBuild : Node2D
         }
     }
 
-    private void OnStartRoundPressed()
+    private void OnStartOrRetreatPressed()
     {
-        if (_roundActive) return;
+        if (_roundActive)
+        {
+            // Retreat: a kör azonnal véget ér, de az addig gyűjtött arany/statisztika
+            // megmarad — nem büntetjük a kilépést, csak korábban zárja le a kört.
+            EndRound("Retreated");
+        }
+        else
+        {
+            StartRound();
+        }
+    }
 
+    private void StartRound()
+    {
         _roundActive = true;
         _goldCollected = 0;
         _enemiesSpawned = 0;
@@ -240,7 +255,8 @@ public partial class LevelBuild : Node2D
         _damageByTower.Clear();
         _roundStartMsec = Time.GetTicksMsec();
         SetBuildingEnabled(false);
-        _startRoundButton.Disabled = true;
+        _startRoundButton.Text = "Retreat";
+        _backButton.Disabled = true;
 
         SpawnEnemy();
         _enemiesSpawned = 1;
@@ -285,7 +301,7 @@ public partial class LevelBuild : Node2D
 
             if (_hp <= 0)
             {
-                EndRound(won: false);
+                EndRound("Defeat!");
                 return;
             }
 
@@ -304,32 +320,34 @@ public partial class LevelBuild : Node2D
         _enemiesResolved++;
         if (_roundActive && _enemiesSpawned >= _enemiesThisWave && _enemiesResolved >= _enemiesThisWave)
         {
-            EndRound(won: true);
+            EndRound("Success!");
         }
     }
 
-    private void EndRound(bool won)
+    private void EndRound(string outcomeTitle)
     {
         if (!_roundActive) return;
 
         _roundActive = false;
         _spawnTimer.Stop();
         SetBuildingEnabled(true);
+        _backButton.Disabled = false;
+        _startRoundButton.Text = "Start Round";
 
         foreach (var enemy in _enemies.GetChildren())
         {
             enemy.QueueFree();
         }
 
-        ShowStatsPopup(won);
+        ShowStatsPopup(outcomeTitle);
 
         _progress.MetaCurrency += _goldCollected;
         new LocalFileSaveProvider().Save(_progress);
     }
 
-    private void ShowStatsPopup(bool won)
+    private void ShowStatsPopup(string outcomeTitle)
     {
-        _statsTitleLabel.Text = won ? "Success!" : "Defeat!";
+        _statsTitleLabel.Text = outcomeTitle;
         _statsGoldLabel.Text = $"Gold collected this round: {_goldCollected}";
 
         foreach (var child in _damageListContainer.GetChildren())
