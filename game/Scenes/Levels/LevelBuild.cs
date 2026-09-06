@@ -5,6 +5,7 @@ using TowerDefense.Core;
 using TowerDefense.Enemies;
 using TowerDefense.Save;
 using TowerDefense.Towers;
+using TowerDefense.UI;
 
 namespace TowerDefense.Levels;
 
@@ -34,7 +35,11 @@ public partial class LevelBuild : Node2D
     private PackedScene _selectedTowerScene;
     private bool _buildingEnabled = true;
 
-    private Label _hpLabel;
+    private const float HpBarMaxWidth = 194f;
+
+    private ColorRect _hpBarFill;
+    private Label _hpBarLabel;
+    private int _maxHp;
     private Label _totalGoldLabel;
     private Label _enemyCountLabel;
     private Label _towerCountLabel;
@@ -64,9 +69,10 @@ public partial class LevelBuild : Node2D
     {
         _towers = GetNode<Node2D>("Towers");
         _enemies = GetNode<Node2D>("Enemies");
-        _hpLabel = GetNode<Label>("CanvasLayer/HpLabel");
+        _hpBarFill = GetNode<ColorRect>("CanvasLayer/HpBarBg/HpBarFill");
+        _hpBarLabel = GetNode<Label>("CanvasLayer/HpBarBg/HpBarLabel");
         _totalGoldLabel = GetNode<Label>("CanvasLayer/TotalGoldLabel");
-        _enemyCountLabel = GetNode<Label>("CanvasLayer/EnemyCountLabel");
+        _enemyCountLabel = GetNode<Label>("CanvasLayer/EnemyPanel/EnemyCountLabel");
         _towerCountLabel = GetNode<Label>("CanvasLayer/RightPanel/TowerCountLabel");
         _startRoundButton = GetNode<Button>("CanvasLayer/RightPanel/StartRoundButton");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
@@ -92,12 +98,19 @@ public partial class LevelBuild : Node2D
         _goldMultiplier = 1f + _progress.GetSkillLevel("currency") * 0.10f;
         _enemiesThisWave = BaseEnemiesPerWave;
 
-        _hp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
-        UpdateHpLabel();
+        _maxHp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
+        _hp = _maxHp;
+        UpdateHpBar();
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
         _enemyCountLabel.Text = $"Enemies this round: {_enemiesThisWave}";
         _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
         _statsPopup.Visible = false;
+
+        // Placeholder arany-ikon a "Total Gold" felirat mellé.
+        var coin = UiHelpers.MakeCircle(new Vector2(20, 20), Colors.Gold);
+        coin.Position = new Vector2(140, 49);
+        GetNode<CanvasLayer>("CanvasLayer").AddChild(coin);
+
         QueueRedraw();
     }
 
@@ -247,7 +260,7 @@ public partial class LevelBuild : Node2D
             // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba
             // költözik, amikor a teljes statisztika/skill fa kör megépül.
             _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(enemy.Data.Dmg));
-            UpdateHpLabel();
+            UpdateHpBar();
             enemy.QueueFree();
 
             if (_hp <= 0)
@@ -329,9 +342,13 @@ public partial class LevelBuild : Node2D
         GetTree().ChangeSceneToFile("res://Scenes/Main/MainMenu.tscn");
     }
 
-    private void UpdateHpLabel()
+    private void UpdateHpBar()
     {
-        _hpLabel.Text = $"HP: {_hp}";
+        var pct = _maxHp > 0 ? (float)_hp / _maxHp : 0f;
+        var size = _hpBarFill.Size;
+        size.X = HpBarMaxWidth * pct;
+        _hpBarFill.Size = size;
+        _hpBarLabel.Text = $"{_hp}/{_maxHp}";
     }
 
     public override void _Draw()

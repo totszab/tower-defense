@@ -60,11 +60,15 @@ public partial class Tower : Node2D
         }
 
         var projectile = Data.ProjectileScene.Instantiate<Projectile>();
+        // Fontos: AddChild ELŐBB, utána GlobalPosition — ha egy még szülő
+        // nélküli node-on állítjuk be a GlobalPosition-t, azt csak lokálisként
+        // tárolja, és a tényleges szülő (aminek van saját eltolása/skálája)
+        // alá kerülve rossz, "duplán eltolt" helyre kerülne.
+        GetTree().CurrentScene.AddChild(projectile);
         projectile.GlobalPosition = GlobalPosition;
         projectile.Target = target;
         projectile.Damage = damage;
         projectile.TowerName = Data.DisplayName;
-        GetTree().CurrentScene.AddChild(projectile);
     }
 
     private void OnAreaEntered(Area2D area)

@@ -1,4 +1,4 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://Scenes/Levels/LevelBuild.cs" id="1"]
 [ext_resource type="PackedScene" path="res://Scenes/Towers/Tower.tscn" id="2"]
@@ -13,6 +13,22 @@ shader = ExtResource("4")
 shader_parameter/color_a = Color(0.05, 0.1, 0.08, 1)
 shader_parameter/color_b = Color(0.1, 0.16, 0.13, 1)
 shader_parameter/speed = 0.12
+
+[sub_resource type="StyleBoxFlat" id="PanelStyle"]
+bg_color = Color(0.08, 0.09, 0.11, 1)
+border_color = Color(0.3, 0.32, 0.38, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+
+[sub_resource type="StyleBoxFlat" id="HpBarBgStyle"]
+bg_color = Color(0.25, 0.06, 0.06, 1)
+border_color = Color(0.5, 0.1, 0.1, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
 
 [node name="Level01Test" type="Node2D"]
 position = Vector2(10, 240)
@@ -46,12 +62,26 @@ wait_time = 1.0
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="HpLabel" type="Label" parent="CanvasLayer"]
+[node name="HpBarBg" type="Panel" parent="CanvasLayer"]
 offset_left = 10.0
 offset_top = 10.0
-offset_right = 300.0
-offset_bottom = 40.0
-text = "HP: 3"
+offset_right = 210.0
+offset_bottom = 38.0
+theme_override_styles/panel = SubResource("HpBarBgStyle")
+
+[node name="HpBarFill" type="ColorRect" parent="CanvasLayer/HpBarBg"]
+offset_left = 2.0
+offset_top = 2.0
+offset_right = 196.0
+offset_bottom = 26.0
+color = Color(0.85, 0.15, 0.15, 1)
+
+[node name="HpBarLabel" type="Label" parent="CanvasLayer/HpBarBg"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+horizontal_alignment = 1
+vertical_alignment = 1
+text = "3/3"
 
 [node name="TotalGoldLabel" type="Label" parent="CanvasLayer"]
 offset_left = 10.0
@@ -60,11 +90,18 @@ offset_right = 300.0
 offset_bottom = 75.0
 text = "Total Gold: 0"
 
-[node name="EnemyCountLabel" type="Label" parent="CanvasLayer"]
+[node name="EnemyPanel" type="Panel" parent="CanvasLayer"]
 offset_left = 10.0
-offset_top = 500.0
-offset_right = 400.0
-offset_bottom = 530.0
+offset_top = 495.0
+offset_right = 310.0
+offset_bottom = 535.0
+theme_override_styles/panel = SubResource("PanelStyle")
+
+[node name="EnemyCountLabel" type="Label" parent="CanvasLayer/EnemyPanel"]
+offset_left = 10.0
+offset_top = 8.0
+offset_right = 290.0
+offset_bottom = 32.0
 text = "Enemies this round: 10"
 
 [node name="RightPanel" type="Panel" parent="CanvasLayer"]
@@ -72,6 +109,7 @@ offset_left = 1060.0
 offset_top = 0.0
 offset_right = 1280.0
 offset_bottom = 720.0
+theme_override_styles/panel = SubResource("PanelStyle")
 
 [node name="TowerCountLabel" type="Label" parent="CanvasLayer/RightPanel"]
 offset_left = 20.0
@@ -81,17 +119,19 @@ offset_bottom = 50.0
 text = "Towers: 0/1"
 
 [node name="StartRoundButton" type="Button" parent="CanvasLayer/RightPanel"]
-offset_left = 20.0
+offset_left = 15.0
 offset_top = 640.0
-offset_right = 105.0
+offset_right = 106.0
 offset_bottom = 685.0
+clip_text = true
 text = "Kör indítása"
 
 [node name="BackButton" type="Button" parent="CanvasLayer/RightPanel"]
-offset_left = 115.0
+offset_left = 114.0
 offset_top = 640.0
-offset_right = 200.0
+offset_right = 205.0
 offset_bottom = 685.0
+clip_text = true
 text = "Kilépés"
 
 [node name="StatsPopup" type="Panel" parent="CanvasLayer"]
@@ -100,6 +140,7 @@ offset_left = 256.0
 offset_top = 144.0
 offset_right = 1024.0
 offset_bottom = 576.0
+theme_override_styles/panel = SubResource("PanelStyle")
 
 [node name="TitleLabel" type="Label" parent="CanvasLayer/StatsPopup"]
 offset_left = 20.0

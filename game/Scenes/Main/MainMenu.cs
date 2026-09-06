@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 using TowerDefense.Save;
+using TowerDefense.UI;
 
 namespace TowerDefense.MainMenu;
 
@@ -50,6 +51,12 @@ public partial class MainMenu : Node2D
         _progress = new LocalFileSaveProvider().Load();
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
         GetNode<Button>("CanvasLayer/PlayButton").Pressed += OnPlayPressed;
+
+        // Placeholder arany-ikon a "Gold" felirat mellé.
+        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
+        var coin = UiHelpers.MakeCircle(new Vector2(20, 20), Colors.Gold);
+        coin.Position = new Vector2(150, 22);
+        canvasLayer.AddChild(coin);
 
         BuildSkillNodes();
         RefreshUi();
