@@ -87,7 +87,7 @@ public partial class LevelBuild : Node2D
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
         GetNode<Button>("CanvasLayer/RightPanel/BackButton").Pressed += OnBackPressed;
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
-        var dmgToggle = GetNode<Button>("CanvasLayer/RightPanel/DamageToggleButton");
+        var dmgToggle = GetNode<Button>("CanvasLayer/DamageTogglePanel/DamageToggleButton");
         dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
         UpdateDamageToggleText(dmgToggle);
         DamageTracker.DamageDealt += OnDamageDealt;
@@ -122,9 +122,12 @@ public partial class LevelBuild : Node2D
         var enemyIcon = new TextureRect
         {
             Texture = enemyTexture,
-            Position = new Vector2(220, 4),
-            Size = new Vector2(28, 28),
-            ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+            Position = new Vector2(230, 6),
+            Size = new Vector2(26, 26),
+            // IgnoreSize: enélkül a TextureRect a textúra natív (64x64) méretét
+            // venné minimum méretnek, és kilógna a panelból.
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
         };
         GetNode<Control>("CanvasLayer/EnemyPanel").AddChild(enemyIcon);
 
@@ -147,7 +150,7 @@ public partial class LevelBuild : Node2D
     private void BuildTowerPalette()
     {
         var rightPanel = GetNode<Control>("CanvasLayer/RightPanel");
-        _towerPalette = new VBoxContainer { Position = new Vector2(20, 105) };
+        _towerPalette = new VBoxContainer { Position = new Vector2(20, 70) };
         rightPanel.AddChild(_towerPalette);
 
         foreach (var towerScene in AvailableTowers)
