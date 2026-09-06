@@ -17,6 +17,9 @@ public partial class Tower : Node2D
     private int _bonusDamage;
     private float _fireRateMultiplier = 1f;
 
+    public float EffectiveDamage => Data.Damage + _bonusDamage;
+    public float EffectiveFireRate => Data.FireRate * _fireRateMultiplier;
+
     public override void _Ready()
     {
         var progress = new LocalFileSaveProvider().Load();
@@ -46,12 +49,12 @@ public partial class Tower : Node2D
         }
 
         FireAt(_enemiesInRange[0]);
-        _cooldown = 1f / (Data.FireRate * _fireRateMultiplier);
+        _cooldown = 1f / EffectiveFireRate;
     }
 
     private void FireAt(Enemy target)
     {
-        var damage = Data.Damage + _bonusDamage;
+        var damage = EffectiveDamage;
 
         if (Data.ProjectileScene == null)
         {

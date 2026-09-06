@@ -30,6 +30,14 @@ border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
 
+[sub_resource type="StyleBoxFlat" id="SemiTransparentStyle"]
+bg_color = Color(0.08, 0.09, 0.11, 0.6)
+border_color = Color(0.8, 0.75, 0.3, 0.8)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+
 [node name="Level01Test" type="Node2D"]
 position = Vector2(10, 240)
 script = ExtResource("1")
@@ -178,9 +186,37 @@ offset_top = 105.0
 offset_right = 748.0
 offset_bottom = 370.0
 
+[node name="NextRoundButton" type="Button" parent="CanvasLayer/StatsPopup"]
+visible = false
+offset_left = 480.0
+offset_top = 380.0
+offset_right = 618.0
+offset_bottom = 420.0
+text = "Next Round →"
+
 [node name="CloseButton" type="Button" parent="CanvasLayer/StatsPopup"]
 offset_left = 628.0
 offset_top = 380.0
 offset_right = 748.0
 offset_bottom = 420.0
+text = "Close"
+
+[node name="TowerInfoPopup" type="Panel" parent="CanvasLayer"]
+visible = false
+offset_right = 220.0
+offset_bottom = 150.0
+theme_override_styles/panel = SubResource("SemiTransparentStyle")
+
+[node name="InfoLabel" type="Label" parent="CanvasLayer/TowerInfoPopup"]
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 210.0
+offset_bottom = 110.0
+text = "Tower"
+
+[node name="CloseButton" type="Button" parent="CanvasLayer/TowerInfoPopup"]
+offset_left = 10.0
+offset_top = 115.0
+offset_right = 90.0
+offset_bottom = 145.0
 text = "Close"

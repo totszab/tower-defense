@@ -20,6 +20,10 @@ public partial class LevelBuild : Node2D
     public static int RequestedRoundNumber = 1;
 
     private const int TotalRoundsPerLevel = 10;
+
+    // Csak eddig van tényleges WaveData tartalom (lásd MainMenu.PlayableRounds
+    // — a két konstans szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
+    private const int MaxPlayableRound = 5;
     private const int Columns = 13;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
@@ -31,7 +35,10 @@ public partial class LevelBuild : Node2D
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
 
-    private readonly HashSet<Vector2I> _occupiedTiles = new();
+    private readonly Dictionary<Vector2I, Tower> _towersByTile = new();
+    private Tower _selectedInfoTower;
+    private Panel _towerInfoPopup;
+    private Label _towerInfoLabel;
     private Node2D _towers;
     private Node2D _enemies;
     private VBoxContainer _towerPalette;
@@ -55,6 +62,7 @@ public partial class LevelBuild : Node2D
     private Label _statsTitleLabel;
     private Label _statsGoldLabel;
     private VBoxContainer _damageListContainer;
+    private Button _nextRoundButton;
 
     private PlayerProgress _progress;
     private int _roundNumber;
@@ -89,12 +97,19 @@ public partial class LevelBuild : Node2D
         _statsTitleLabel = GetNode<Label>("CanvasLayer/StatsPopup/TitleLabel");
         _statsGoldLabel = GetNode<Label>("CanvasLayer/StatsPopup/RoundGoldLabel");
         _damageListContainer = GetNode<VBoxContainer>("CanvasLayer/StatsPopup/DamageList");
+        _nextRoundButton = GetNode<Button>("CanvasLayer/StatsPopup/NextRoundButton");
+
+        _towerInfoPopup = GetNode<Panel>("CanvasLayer/TowerInfoPopup");
+        _towerInfoLabel = GetNode<Label>("CanvasLayer/TowerInfoPopup/InfoLabel");
+        GetNode<Button>("CanvasLayer/TowerInfoPopup/CloseButton").Pressed += HideTowerInfo;
+        _towerInfoPopup.Visible = false;
 
         _startRoundButton.Pressed += OnStartOrRetreatPressed;
         _spawnTimer.Timeout += OnSpawnTimerTimeout;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
         _backButton.Pressed += OnBackPressed;
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
+        _nextRoundButton.Pressed += OnNextRoundPressed;
         var dmgToggle = GetNode<Button>("CanvasLayer/DamageTogglePanel/DamageToggleButton");
         dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
         UpdateDamageToggleText(dmgToggle);
@@ -168,8 +183,24 @@ public partial class LevelBuild : Node2D
     {
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
         {
-            TryPlaceTower(GetLocalMousePosition());
+            OnBoardClicked(GetLocalMousePosition());
         }
+    }
+
+    private void OnBoardClicked(Vector2 localPos)
+    {
+        var tile = new Vector2I(
+            Mathf.FloorToInt(localPos.X / GridConstants.TileSize),
+            Mathf.FloorToInt(localPos.Y / GridConstants.TileSize));
+
+        if (_towersByTile.TryGetValue(tile, out var existingTower))
+        {
+            ToggleTowerInfo(existingTower);
+            return;
+        }
+
+        HideTowerInfo();
+        TryPlaceTower(tile);
     }
 
     private void BuildTowerPalette()
@@ -219,27 +250,50 @@ public partial class LevelBuild : Node2D
         _selectedTowerScene = towerScene;
     }
 
-    private void TryPlaceTower(Vector2 localPos)
+    private void TryPlaceTower(Vector2I tile)
     {
         if (!_buildingEnabled) return;
         if (_selectedTowerScene == null) return;
-        if (_occupiedTiles.Count >= _maxTowers) return;
-
-        var tile = new Vector2I(
-            Mathf.FloorToInt(localPos.X / GridConstants.TileSize),
-            Mathf.FloorToInt(localPos.Y / GridConstants.TileSize));
+        if (_towersByTile.Count >= _maxTowers) return;
 
         if (tile.X < 0 || tile.X >= Columns) return;
         if (Array.IndexOf(BuildableRows, tile.Y) < 0) return;
-        if (_occupiedTiles.Contains(tile)) return;
+        if (_towersByTile.ContainsKey(tile)) return;
 
         var tower = _selectedTowerScene.Instantiate<Tower>();
         tower.Position = new Vector2(
             (tile.X + 0.5f) * GridConstants.TileSize,
             (tile.Y + 0.5f) * GridConstants.TileSize);
         _towers.AddChild(tower);
-        _occupiedTiles.Add(tile);
-        _towerCountLabel.Text = $"Towers: {_occupiedTiles.Count}/{_maxTowers}";
+        _towersByTile[tile] = tower;
+        _towerCountLabel.Text = $"Towers: {_towersByTile.Count}/{_maxTowers}";
+    }
+
+    private void ToggleTowerInfo(Tower tower)
+    {
+        if (_selectedInfoTower == tower)
+        {
+            HideTowerInfo();
+            return;
+        }
+
+        _selectedInfoTower = tower;
+        _towerInfoPopup.Visible = true;
+        _towerInfoLabel.Text =
+            $"{tower.Data.DisplayName}\n" +
+            $"Damage: {tower.EffectiveDamage:0.#}\n" +
+            $"Range: {tower.Data.Range:0.#} tiles\n" +
+            $"Fire Rate: {tower.EffectiveFireRate:0.##}/sec";
+        _towerInfoPopup.Position = tower.GlobalPosition + new Vector2(40, -90);
+        QueueRedraw();
+    }
+
+    private void HideTowerInfo()
+    {
+        if (_selectedInfoTower == null) return;
+        _selectedInfoTower = null;
+        _towerInfoPopup.Visible = false;
+        QueueRedraw();
     }
 
     private void SetBuildingEnabled(bool enabled)
@@ -307,15 +361,18 @@ public partial class LevelBuild : Node2D
         var step = _wave.Steps[_currentStepIndex];
         for (var i = 0; i < step.Count; i++)
         {
-            SpawnEnemy(step.Enemy);
+            SpawnEnemy(step.Enemy, i);
         }
     }
 
-    private void SpawnEnemy(EnemyData data)
+    private void SpawnEnemy(EnemyData data, int spawnIndexInStep = 0)
     {
         var enemy = EnemyScene.Instantiate<Enemy>();
         enemy.Data = data;
-        enemy.Position = new Vector2(0, (PathRow + 0.5f) * GridConstants.TileSize);
+        // Egy tick-en belül a batch tagjai ne fedjék teljesen egymást — egy
+        // tile-nyi hézaggal "mögé" spawnolnak, hogy látszódjon, hányan jönnek.
+        var xOffset = -spawnIndexInStep * GridConstants.TileSize;
+        enemy.Position = new Vector2(xOffset, (PathRow + 0.5f) * GridConstants.TileSize);
         enemy.Died += () => OnEnemyKilled(enemy);
         _enemies.AddChild(enemy);
     }
@@ -377,7 +434,7 @@ public partial class LevelBuild : Node2D
             enemy.QueueFree();
         }
 
-        ShowStatsPopup(outcomeTitle);
+        ShowStatsPopup(outcomeTitle, success);
 
         _progress.MetaCurrency += _goldCollected;
 
@@ -389,7 +446,7 @@ public partial class LevelBuild : Node2D
         new LocalFileSaveProvider().Save(_progress);
     }
 
-    private void ShowStatsPopup(string outcomeTitle)
+    private void ShowStatsPopup(string outcomeTitle, bool success)
     {
         _statsTitleLabel.Text = outcomeTitle;
         _statsGoldLabel.Text = $"Gold collected this round: {_goldCollected}";
@@ -409,6 +466,7 @@ public partial class LevelBuild : Node2D
             });
         }
 
+        _nextRoundButton.Visible = success && _roundNumber < MaxPlayableRound;
         _statsPopup.Visible = true;
         _startRoundButton.Disabled = true;
     }
@@ -417,6 +475,12 @@ public partial class LevelBuild : Node2D
     {
         _statsPopup.Visible = false;
         _startRoundButton.Disabled = false;
+    }
+
+    private void OnNextRoundPressed()
+    {
+        RequestedRoundNumber = _roundNumber + 1;
+        GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }
 
     private void OnDamageTogglePressed(Button button)
@@ -461,6 +525,13 @@ public partial class LevelBuild : Node2D
                 DrawRect(rect, color, true);
                 DrawRect(rect, new Color(0f, 0f, 0f, 0.15f), false, 1f);
             }
+        }
+
+        if (_selectedInfoTower != null && IsInstanceValid(_selectedInfoTower))
+        {
+            var radius = _selectedInfoTower.Data.Range * GridConstants.TileSize;
+            DrawCircle(_selectedInfoTower.Position, radius, new Color(1f, 1f, 0.3f, 0.15f));
+            DrawArc(_selectedInfoTower.Position, radius, 0f, Mathf.Tau, 48, new Color(1f, 1f, 0.3f, 0.7f), 2f);
         }
     }
 }
