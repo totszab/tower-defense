@@ -61,7 +61,7 @@ A cél: kezdetben ingyenes assetekkel dolgozunk, később lecserélhető legyen 
 
 **Jelenlegi (bootstrap) implementáció** — egyszerűbb, mint az eredetileg tervezett `SkillNodeData` Resource-gráf, mert egyelőre csak 5, fixen 0-5 szintig fejleszthető node létezik:
 
-- `PlayerProgress.SkillLevels : Dictionary<string, int>` — node id (`"dmg"`, `"hp"`, `"towers"`, `"currency"`, `"enemy"`) → jelenlegi szint. Ez perzisztálódik a `LocalFileSaveProvider`-en keresztül.
+- `PlayerProgress.SkillLevels : Dictionary<string, int>` — node id (`"dmg"`, `"hp"`, `"towers"`, `"currency"`, `"fireRate"`) → jelenlegi szint. Ez perzisztálódik a `LocalFileSaveProvider`-en keresztül.
 - A node-ok id-ja, ára (szintenkénti tömb), hatása és pozíciója **kódba égetve** a `MainMenu.cs`-ben (`CostsFor`, `NodePositions`), nem külön Resource-fájlokban.
 - A hatásokat a fogyasztó kód (`Tower.cs`, `LevelBuild.cs`) közvetlenül olvassa: mindegyik saját `_Ready()`-jében betölti a `PlayerProgress`-t és kiszámolja a rá vonatkozó bónuszt (`GetSkillLevel("dmg")` stb.) — nincs központi `SkillTreeManager` autoload még.
 
@@ -87,17 +87,22 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 - `PlayerProgress` (a mentett `SaveData` gyökér-objektuma) — **implementált mezők**:
   - `MetaCurrency` (int) — elkölthető skill-fa arany egyenleg
   - `SkillLevels` (Dictionary<string, int>) — node id → szint (0-5), lásd "Skill fa adatmodell"
+  - `HighestUnlockedRound` (int, default 1) — meddig jutott a játékos **Level 1-en belül**. Ez az eredetileg tervezett `HighestUnlockedLevelIndex` egyszerűsített, egy-pályás verziója — nincs "melyik pálya" dimenzió, mert csak Level 1 létezik. Ha 2. pálya készül, ez `Dictionary<levelId, int>`-re bővül.
   - **Még nem implementált** (eredeti terv, ROADMAP Fázis 4-hez kötve):
-    - `HighestUnlockedLevelIndex` (int) — meddig jutott a játékos lineárisan ([Folytatás] gomb, [Pálya választó])
     - `LevelPresets` (Dictionary<levelId, PresetData>) — pályánként egy mentett torony-elrendezés
     - Globális beállítások (hangerő stb.)
 - Amit **szándékosan NEM** mentünk state-ként: legjobb eredmény/statisztika pályánként — a statisztika popup egy adott futás lezárása, nem perzisztens ranglista (nincs ilyen elvárás egyelőre)
 
-## Nehézség-skálázás
+## Hullám / kör adatmodell
 
-- Nincs külön "nehéz mód" tartalom pályánként — egy központi szorzó-görbe (`DifficultyCurve`) a hullám/pálya sorszámából számol HP/sebesség/jutalom szorzót
-- Ez azt jelenti: az `EnemyData` alap-statokat tárol, a ténylegesen pályán megjelenő ellenség stat = alap-stat × görbe(pálya, hullám)
-- Pontos formula: **TBD**, finomítjuk amikor a játékmenet dokumentumban leszünk a konkrét számoknál
+**Ez felváltja a korábban tervezett formula-alapú `DifficultyCurve` szorzót** — legalábbis Level 1 eddig megtervezett köreire (1-5) kézzel írt tartalom van formula helyett. Lásd GAMEPLAY.md "Hullámok" a döntés indoklásához.
+
+- `WaveData : Resource` — egy kör teljes menetrendje: `SpawnInterval` (mp/tick) és `Steps (SpawnStepData[])`. `TotalEnemyCount()` segédmetódus összegzi a `Steps[].Count`-okat.
+- `SpawnStepData : Resource` — egy tick: `Enemy (EnemyData)` + `Count (int)` — ennyi darab spawnol egyszerre.
+- Egyenletes hullám, csoportos spawn, kevert sorrend és záró boss mind ugyanezzel a Step-lista modellel írható le (lásd GAMEPLAY.md konkrét példák).
+- Fájlok: `Data/Waves/Level1/Round{N}.tres` — a `SpawnStepData` példányok a WaveData fájlján BELÜL, `[sub_resource]`-ként vannak definiálva (nem külön fájlonként), mert egy körön belül gyakran ismétlődik ugyanaz a Step.
+- **Kör-szám átadása a scene-nek**: mivel `ChangeSceneToFile` nem tud paramétert átadni, a `LevelBuild.RequestedRoundNumber` egy **statikus mező**, amit a `MainMenu` állít be a scene-váltás előtt, a `LevelBuild._Ready()` pedig ebből tölti be a megfelelő `Round{N}.tres`-t. Ez egy pragmatikus, egy-scene-tipikus megoldás — ha több pálya lesz, érdemesebb egy `LevelSelection` statikus/autoload struktúrára váltani (pálya ID + kör szám pár).
+- `EnemyData` bővült placeholder-tier vizuális mezőkkel, hogy több típus (pl. Blue Slime, mini/final boss) ugyanazt a sprite-ot használhassa art nélkül is megkülönböztethetően: `DisplayName`, `Tint` (Color, Sprite2D.Modulate-ra alkalmazva), `SpriteScale`, `HitRadius` (a CollisionShape2D shape-jét **duplikálni kell** kódból, mielőtt a Radius-t módosítjuk — a `.tscn`-ben definiált shape resource meg van osztva minden `Enemy.tscn` példány között).
 
 ## Kódolási konvenciók
 
@@ -107,8 +112,7 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 
 ## Nyitott kérdések / TBD
 
-- Pontos Resource mezők tornyonként/ellenségenként (kötve a GAMEPLAY.md finomításához)
-- Difficulty curve pontos formulája
-- Skill fa pontos node-lista, árak, fa-alak
+- Level 1 6-9. körének tartalma és a final boss (10. kör) statjai
+- 3-4 torony típus (jelenleg csak 1 létezik) — a `fireRate` skill node torony-specifikussága ezért ma de facto globális
 - "Eszköz/képesség" `EffectType` pontos viselkedése (harc közbeni aktiválás mechanikája) — GAMEPLAY.md-ben is TBD
 - Build/CI (Steam feltöltéskor releváns lesz, most nem blocker)

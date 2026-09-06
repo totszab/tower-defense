@@ -6,41 +6,39 @@ Státusz: élő dokumentum, a fázisok/prioritások finomodhatnak útközben.
 
 Egy befejezett, ~10 pályás tower defense demo → portfólió-darabnak mindenképp jó, és ha idáig eljutunk energiával/idővel, Steamre kiadható.
 
-## Fázis 0 — Előkészítés (jelenleg itt tartunk)
+## Fázis 0 — Előkészítés
 
 - [x] Rendszerterv, tech stack döntések
 - [x] Mappastruktúra, dokumentáció váza
-- [ ] Helyi eszközök telepítve (Godot .NET, .NET SDK, Visual Studio Community)
-- [ ] GitHub repó létrehozva, első commit
-- [ ] Játékmenet dokumentum konkrét számokkal feltöltve (torony/ellenség lista, formulák)
+- [x] Helyi eszközök telepítve (Godot .NET, .NET SDK, Visual Studio Community)
+- [x] GitHub repó létrehozva, első commit
+- [x] Játékmenet dokumentum konkrét számokkal feltöltve (torony/ellenség lista, formulák)
 
 ## Fázis 1 — Godot/C# alapok
 
-Cél: működő Godot + C# projekt, alap node/scene mozgás, semmi végleges tartalom.
+- [x] Godot projekt inicializálva, C# build működik
+- [x] Projektstruktúra létrehozva (Scenes/Scripts/Data/Assets mappák)
+- [x] Első ingyenes asset pack becsatlakoztatva (Kenney Tower Defense Top-Down)
 
-- [ ] Godot projekt inicializálva, C# build működik (üres jelenet, egy mozgó node)
-- [ ] Projektstruktúra létrehozva (Scenes/Scripts/Data/Assets mappák)
-- [ ] Első ingyenes asset pack becsatlakoztatva teszt gyanánt
+## Fázis 2 — Core loop (teljes vázlat körbe-körbe) — kész
 
-## Fázis 2 — Core loop (1 pálya, minimál tartalom, teljes vázlat körbe-körbe)
+Cél: a **teljes** navigációs kör végigjátszható — build fázis → hullám → statisztika popup → skill fa → vissza. Ez a legkockázatosabb architekturális rész volt (több rendszer találkozása), ezért jött korábban, mint a tartalombővítés.
 
-Cél: a **teljes** navigációs kör végigjátszható placeholder tartalommal — build fázis → hullám → statisztika popup → skill fa → vissza. Ez korábban jön be, mint a tartalombővítés, mert ez a legkockázatosabb architekturális rész (több rendszer találkozása).
+- [x] Útvonal mentén mozgó ellenség
+- [x] Torony: célzás, tüzelés (lövedékkel), sebzés (slot-limit betartva a build fázisban)
+- [x] Wave manager: `WaveData`/`SpawnStepData` adatvezérelt hullám-rendszer, build szünet köröket között
+- [x] Helyi futás-állapot (`LevelBuild` mezői): gyűjtött arany, élet (piros bar), tornyonkénti sebzés-számláló (`DamageTracker`); győzelem/vereség/visszavonulás szimmetrikus lezárás — **nincs még külön `RunState` autoload**, ez egy fogyasztóban (LevelBuild) él
+- [x] `TowerData`/`EnemyData`/`WaveData`/`SpawnStepData` Resource-ok bevezetve — a skill fa node-jai **kódba égetve** vannak (`MainMenu.cs`), nem `SkillNodeData` gráf (lásd TECHNICAL.md "Skill fa adatmodell" indoklás)
+- [x] Teljes 5-node skill fa (hub + 4 irány), nem csak placeholder
+- [x] Statisztika popup: siker/vereség/visszavonulás cím, gyűjtött arany, tornyonkénti total dmg + dmg/sec — **nincs preset mentés/betöltés** (ez még TBD)
 
-- [ ] Útvonal mentén mozgó ellenség
-- [ ] Torony: célzás, tüzelés, sebzés (slot-limit betartva a build fázisban)
-- [ ] Wave manager: diszkrét hullámok, build szünet köztük
-- [ ] `RunState`: gyűjtött arany, élet, tornyonkénti sebzés-számláló; győzelem/vereség szimmetrikus lezárás
-- [ ] `TowerData`/`EnemyData`/`SkillNodeData` Resource-ok bevezetve (adatvezérelt dizájn már itt, nem utólag)
-- [ ] Minimál Skill fa (1-2 placeholder node: pl. 1 torony unlock, 1 slot-limit növelés) — hogy a teljes kör tesztelhető legyen, nem a végleges tartalom
-- [ ] Statisztika popup: preset mentés/betöltés, [Újra]/[Befejezés] működik
+## Fázis 3 — Tartalombővítés (folyamatban)
 
-## Fázis 3 — Tartalombővítés
-
-- [ ] 3-4 torony típus a GAMEPLAY.md szerint véglegesítve
-- [ ] 3-4 ellenség típus
-- [ ] Nehézség-skálázó görbe implementálva
-- [ ] 10 pálya layout elkészítve
-- [ ] Teljes skill fa node-lista (globális + torony-specifikus ágak)
+- [ ] 3-4 torony típus a GAMEPLAY.md szerint véglegesítve (jelenleg 1 van)
+- [x] Level 1, 1-5. kör tartalma kész (Green Slime → Blue Slime → mini boss), lásd GAMEPLAY.md "Pályák és körök"
+- [ ] Level 1, 6-9. kör + final boss (10. kör) tartalma
+- [x] Kör-választó UI a Főmenüben (R1-R5, feloldottság szerint)
+- [ ] 2. pálya (ha idáig eljutunk energiával — jelenleg csak Level 1 létezik)
 
 ## Fázis 4 — UI/UX és mentés
 

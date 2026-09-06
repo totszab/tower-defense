@@ -113,53 +113,59 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 
 ## Ellenségek
 
-**Fázis 2 bootstrap — az első ellenség**:
+**Level 1 tartalom (1-5. kör alapján, véglegesített statok)**:
 
-| Mező | Érték |
-|---|---|
-| HP | 5 |
-| Dmg (mennyi életet vesz el, ha célba ér) | 1 |
-| Value (mennyi aranyat ad, ha megölik) | 1 |
-| Speed (sebesség — **mekkora távolságot tesz meg időegység alatt**, tile/mp) | 1 |
-| Sprite | Placeholder (egyszerű geometrikus forma, pl. fekete kör vagy háromszög) |
+| Ellenség | HP | Dmg | Value | Speed | Megjegyzés |
+|---|---|---|---|---|---|
+| Green Slime | 5 | 1 | 1 | 1 tile/mp | Az eredeti bootstrap ellenség, csak átnevezve |
+| Blue Slime | 10 | 1 | 2 | 1 tile/mp | Erősebb, több aranyat ér; 3. körtől jelenik meg |
+| Blue Slime (Mini Boss) | 30 | 5 | 5 | 1 tile/mp | 5. kör záró ellenfele, nagyobb méretben |
 
-**Célkép (Fázis 3-ra)**: **3-4 ellenség típus**, a fenti az "Alap" szerepkör első, minimál változata.
+Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 
-| Ellenség | Jellemző | TBD részletek |
-|---|---|---|
-| Alap | Kiegyensúlyozott HP/sebesség (lásd bootstrap fent) | Fázis 3: véglegesítendő számok |
-| ? | Gyors, kevés HP | számok |
-| ? | Lassú, sok HP ("tank") | számok |
-| ? | Speciális (pl. páncél/resist bizonyos torony ellen, vagy repülő) | típus, számok |
+**Vizuális variánsok placeholder-tier módon**: nincs egyedi art minden típushoz — ugyanazt a sprite-ot **színezzük** (`Tint`, Godot `Modulate`) és **skálázzuk** (`SpriteScale`, a hitbox-szal együtt `HitRadius`), hogy a típusok megkülönböztethetők legyenek anélkül, hogy új assetre várnánk. A mini/final boss ugyanígy csak egy nagyobbra skálázott, erősebb statú variáns — amikor lesz saját art, csak a `Sprite`/`Tint` mezőt kell cserélni, a rendszer nem változik.
 
-Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`.
+**Célkép (Fázis 3+)**: a fenti a Level 1 első fele; a 6-10. kör tartalma (beleértve a final boss statjait) még TBD, és hosszabb távon minden ellenségnek lehet saját sprite-ja a jelenlegi tint/scale trükk helyett.
 
 **Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (tile/másodperc). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek. Mindkét torony- és ellenség-mérték (`Range`, `Speed`) a rácsos pálya tile-egységére épül — lásd TECHNICAL.md "Pálya rács / koordináta-rendszer".
 
-## Pályák
+## Pályák és körök
 
-- **~10 pálya** az MVP-ben, lineáris feloldási sorrend (a [Folytatás] gomb mindig a legutóbb el nem ért pályát indítja)
-- A [Pálya választó] bármelyik **már feloldott** pályát engedi újraindítani (nem csak a legutóbbit)
-- Minden pálya: saját útvonal-elrendezés (layout) és saját elhelyezhető mezők, de a torony/ellenség *típusok* megegyeznek — a nehézség elsősorban **szám-skálázással** nő
-- TBD: lineáris vagy elágazó útvonalak? Egy vagy több útvonal pályánként?
-- Pályánként **egy preset** menthető (build elrendezés), felülírásos — a statisztika popup "Preset mentése" gombjával
+**Egy pálya = 10 kör.** Ez a korábbi "pálya = egy hullám-sorozat" elképzelés pontosítása: amit eddig "pályaként" teszteltünk (a `Level01Test` scene), az valójában **Level 1, 1. kör**.
 
-## Nehézség-skálázás (számítási logika)
+- Minden pályának **10 köre** van, lineáris feloldási sorrenddel — egy kör sikeres teljesítése (győzelem, nem vereség/visszavonulás) feloldja a pálya következő körét
+- **Az 5. és a 10. kör végén boss van**: az 5. kör végén egy **mini boss**, a 10. kör végén egy **final boss** zárja a hullámot
+- A `PlayerProgress.HighestUnlockedRound` tárolja meddig jutott a játékos — ez egyelőre **egy-pályás egyszerűsítés** (nincs "melyik pálya" dimenzió, mert csak Level 1 létezik); ha 2. pálya is készül, ez pálya-kulcsos map-re bővül (lásd TECHNICAL.md)
+- A Főmenüben egy kör-választó sáv (`R1`..`R5` gombok, feloldottság szerint engedélyezve) indítja a választott kört
 
-Elv (lásd TECHNICAL.md is): egy központi görbe szorozza az alap ellenség-statokat a pálya/hullám sorszáma alapján.
+**Level 1 tartalmi állapota**:
 
-Vázlat-formula (TBD, finomítandó):
-```
-effectiveHP    = baseHP    × (1 + levelIndex × hpGrowthRate)
-effectiveSpeed = baseSpeed × (1 + levelIndex × speedGrowthRate)   ← vagy fix marad, csak HP nő
-reward         = baseValue × (1 + levelIndex × rewardGrowthRate)
-```
-Nyitott kérdés: a skálázás pályaszintű (minden pálya egy fix szorzó) vagy hullámszintű is (pályán belül is nő)? Valószínűleg mindkettő, de az arányokat játszva kell belőni.
+| Kör | Tartalom | Státusz |
+|---|---|---|
+| 1 | 10× Green Slime, 2 mp-enként 1 | Kész |
+| 2 | 10× (2 Green Slime), 2 mp-enként | Kész |
+| 3 | 2 Green Slime + 1 Blue Slime mintázat, 5×, összesen 10 Green + 5 Blue | Kész |
+| 4 | 10× (2 Blue Slime), 2 mp-enként | Kész |
+| 5 | 10× (3 Blue Slime), majd 1 Mini Boss a végén | Kész |
+| 6-9 | — | **TBD** |
+| 10 | — (final boss) | **TBD** |
 
-## Hullámok (waves)
+## Hullámok (waves) — adatvezérelt "spawn step" modell
 
-- Pályánként N diszkrét hullám, hullámonként meghatározott ellenség-mix (típus + darabszám)
-- Build szünet minden hullám között, ameddig a játékos akarja (nincs időnyomás — a következő hullám a játékos indítására indul, nem automatikusan)
+A korábban tervezett "központi görbe szorozza az alap statokat" formula-alapú nehézség-skálázást **felváltotta a kézzel megtervezett, körönkénti tartalom** — legalábbis Level 1 első felében. Minden kör egy `WaveData` resource-ban van leírva:
+
+- `SpawnInterval`: hány másodpercenként pörög le a következő "tick" (jelenleg egységesen 2 mp)
+- `Steps`: egy **sorrendben lejátszott lista**, minden elem (`SpawnStepData`) egy adott `EnemyData`-ból `Count` darabot indít egyszerre
+
+Ez a modell egyetlen struktúrával fedi le mindhárom eddig előforduló mintázatot:
+- **Egyenletes hullám**: minden Step ugyanaz (pl. Round 1: 10× "1 Green Slime")
+- **Csoportos spawn**: minden Step többet indít egyszerre (pl. Round 4: 10× "2 Blue Slime")
+- **Kevert/interleaved sorrend**: a Step-ek váltakoznak (pl. Round 3: Green, Green, Blue, ismétlve)
+- **Záró boss**: az utolsó Step egy nagyobb, erősebb `EnemyData`-t indít 1 darabszámmal (Round 5)
+
+Ez a rendszer **felváltja**, nem kiegészíti a korábbi "difficulty curve" tervet — ha később mégis szükség lenne formula-alapú skálázásra (pl. 6-10. kör gyors legenerálásához ahelyett, hogy mindent kézzel megterveznénk), az egy külön `WaveData`-generátor lenne, ami ugyanezt a Step-listát állítaná elő kódból.
+
+- Build szünet minden kör előtt, ameddig a játékos akarja (nincs időnyomás — a kör a játékos indítására indul, nem automatikusan)
 - TBD: van-e "gyorsítás" gomb a harc alatt (2x sebesség stb.)
 
 ## Statisztika popup — tartalma
@@ -182,10 +188,9 @@ Nyitott kérdés: a skálázás pályaszintű (minden pálya egy fix szorzó) va
 
 - Több útvonal / branching path (kivéve ha egyszerű megvalósítani)
 - Pontos "eszköz/képesség" rendszer kidolgozása (a skill fában helye van fenntartva, de tartalom TBD)
-- Boss-ellenségek (kivéve ha egyszerű bevezetni később)
 - Multiplayer / bármilyen hálózati funkció
 - Menetközbeni (harc alatti) építés/módosítás
 
 ## Következő lépés
 
-A rendszer (loop, gazdaság, skill fa szerkezet) le van fektetve. Következő kör: konkrét torony-/ellenség-lista és statok, skill fa node-lista, difficulty curve pontos formulája — mielőtt a tartalom-fázisba (ROADMAP fázis 3) lépünk.
+A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell) le van fektetve, Level 1 1-5. köre kész tartalommal. Következő kör: Level 1 6-9. körének megtervezése, a final boss (10. kör) statjai, és hosszabb távon a torony-választék bővítése (jelenleg még csak 1 torony típus van, a GAMEPLAY.md "Tornyok" szekció 3-4 típust vázol fel).
