@@ -176,17 +176,8 @@ public partial class LevelBuild : Node2D
         {
             var row = new HBoxContainer();
 
-            // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
-            // kell állnia, különben a minimum-méret a natív textúraméret alapján
-            // rögzül, és a Size beállítása arra clampelődik.
-            var icon = new TextureRect
-            {
-                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                Texture = data.Sprite,
-                Modulate = data.Tint,
-                CustomMinimumSize = new Vector2(22, 22),
-            };
+            var icon = UiHelpers.MakeEnemyIcon(data);
+            icon.CustomMinimumSize = new Vector2(22, 22);
             var label = new Label { Text = $"{counts[data]}x {data.DisplayName}" };
 
             row.AddChild(icon);

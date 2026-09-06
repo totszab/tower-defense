@@ -37,7 +37,11 @@ public partial class MainMenu : Node2D
     {
         "res://Data/Enemies/enemy_basic.tres",
         "res://Data/Enemies/blue_slime.tres",
+        "res://Data/Enemies/purple_slime.tres",
         "res://Data/Enemies/blue_slime_boss.tres",
+        "res://Data/Enemies/green_triangle.tres",
+        "res://Data/Enemies/blue_triangle.tres",
+        "res://Data/Enemies/purple_triangle.tres",
     };
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()
@@ -110,18 +114,7 @@ public partial class MainMenu : Node2D
             card.AddThemeStyleboxOverride("panel", cardStyle);
             card.TooltipText = $"{data.DisplayName}\nHP: {data.Hp:0}\nDmg: {data.Dmg:0}\nGold: {data.Value}\nSpeed: {data.Speed:0.#} tiles/sec";
 
-            // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
-            // kell állnia, különben a minimum-méret a natív textúraméret alapján
-            // rögzül, és a Size beállítása arra clampelődik.
-            var icon = new TextureRect
-            {
-                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                Texture = data.Sprite,
-                Modulate = data.Tint,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-            };
-
+            var icon = UiHelpers.MakeEnemyIcon(data);
             card.AddChild(icon);
             grid.AddChild(card);
         }

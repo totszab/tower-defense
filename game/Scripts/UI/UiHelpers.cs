@@ -1,9 +1,37 @@
 using Godot;
+using TowerDefense.Data;
 
 namespace TowerDefense.UI;
 
 public static class UiHelpers
 {
+    // Codex kártyák és enemy breakdown sorok közös ikon-építője: kör alakú
+    // ellenségnél a tint-elt sprite-ot, háromszögnél a kód-rajzolt
+    // TriangleIcon-t adja vissza — a hívó nem kell tudja, melyik.
+    public static Control MakeEnemyIcon(EnemyData data)
+    {
+        if (data.Shape == EnemyData.EnemyShape.Triangle)
+        {
+            return new TriangleIcon
+            {
+                TriangleColor = data.Tint,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+        }
+
+        // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
+        // kell állnia, különben a minimum-méret a natív textúraméret alapján
+        // rögzül, és a Size beállítása arra clampelődik.
+        return new TextureRect
+        {
+            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+            Texture = data.Sprite,
+            Modulate = data.Tint,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+    }
+
     public static Panel MakeCircle(Vector2 size, Color color)
     {
         var panel = new Panel

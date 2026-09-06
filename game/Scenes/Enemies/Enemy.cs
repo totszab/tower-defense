@@ -22,8 +22,17 @@ public partial class Enemy : Area2D
         _currentHp = Data.Hp;
 
         var sprite = GetNode<Sprite2D>("Sprite2D");
-        sprite.Modulate = Data.Tint;
-        sprite.Scale = new Vector2(Data.SpriteScale, Data.SpriteScale);
+        if (Data.Shape == EnemyData.EnemyShape.Triangle)
+        {
+            // Háromszög alakú ellenségnek nincs sprite-ja, kód-rajzolt
+            // háromszöget kap a _Draw()-ban.
+            sprite.Visible = false;
+        }
+        else
+        {
+            sprite.Modulate = Data.Tint;
+            sprite.Scale = new Vector2(Data.SpriteScale, Data.SpriteScale);
+        }
 
         // A CollisionShape2D alap shape-je meg van osztva minden Enemy.tscn
         // példány között — duplikálni kell, különben egy boss megnagyobbított
@@ -55,9 +64,22 @@ public partial class Enemy : Area2D
         }
     }
 
-    // Piros életerő-sáv az ellenség fölött, szám nélkül.
+    // Piros életerő-sáv az ellenség fölött, szám nélkül (+ a háromszög
+    // alakú ellenségek kód-rajzolt teste, ld. Data.Shape).
     public override void _Draw()
     {
+        if (Data.Shape == EnemyData.EnemyShape.Triangle)
+        {
+            var r = 26f * Data.SpriteScale;
+            var points = new[]
+            {
+                new Vector2(r, 0f),
+                new Vector2(-r * 0.7f, -r * 0.8f),
+                new Vector2(-r * 0.7f, r * 0.8f),
+            };
+            DrawColoredPolygon(points, Data.Tint);
+        }
+
         var pct = Data.Hp > 0f ? Mathf.Clamp(_currentHp / Data.Hp, 0f, 1f) : 0f;
         var barWidth = BarWidth * Data.SpriteScale;
         var topLeft = new Vector2(-barWidth / 2f, BarYOffset * Data.SpriteScale);

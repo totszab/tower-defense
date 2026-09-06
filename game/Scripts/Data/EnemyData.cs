@@ -5,6 +5,12 @@ namespace TowerDefense.Data;
 [GlobalClass]
 public partial class EnemyData : Resource
 {
+    public enum EnemyShape
+    {
+        Circle,
+        Triangle,
+    }
+
     [Export] public string DisplayName { get; set; } = "Enemy";
 
     [Export] public float Hp { get; set; } = 5f;
@@ -21,4 +27,9 @@ public partial class EnemyData : Resource
     [Export] public Color Tint { get; set; } = Colors.White;
     [Export] public float SpriteScale { get; set; } = 1.25f;
     [Export] public float HitRadius { get; set; } = 35f;
+
+    // Circle: a Sprite2D textúrát használjuk (placeholder slime art). Triangle:
+    // nincs saját sprite, kód-rajzolt háromszög a Tint színével (Enemy._Draw()
+    // és UiHelpers.MakeEnemyIcon() a menü/UI oldalon).
+    [Export] public EnemyShape Shape { get; set; } = EnemyShape.Circle;
 }
