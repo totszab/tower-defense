@@ -30,14 +30,13 @@ Cél: a **teljes** navigációs kör végigjátszható — build fázis → hull
 - [x] Helyi futás-állapot (`LevelBuild` mezői): gyűjtött arany, élet (piros bar), tornyonkénti sebzés-számláló (`DamageTracker`); győzelem/vereség/visszavonulás szimmetrikus lezárás — **nincs még külön `RunState` autoload**, ez egy fogyasztóban (LevelBuild) él
 - [x] `TowerData`/`EnemyData`/`WaveData`/`SpawnStepData` Resource-ok bevezetve — a skill fa node-jai **kódba égetve** vannak (`MainMenu.cs`), nem `SkillNodeData` gráf (lásd TECHNICAL.md "Skill fa adatmodell" indoklás)
 - [x] Teljes 5-node skill fa (hub + 4 irány), nem csak placeholder
-- [x] Statisztika popup: siker/vereség/visszavonulás cím, gyűjtött arany, tornyonkénti total dmg + dmg/sec — **nincs preset mentés/betöltés** (ez még TBD)
+- [x] Statisztika popup: siker/vereség/visszavonulás cím, gyűjtött arany, tornyonkénti total dmg + dmg/sec, preset mentés (pályánként egy elrendezés, automatikusan alkalmazva a pálya bármelyik körének indításakor)
 
 ## Fázis 3 — Tartalombővítés (folyamatban)
 
 - [ ] 3-4 torony típus a GAMEPLAY.md szerint véglegesítve (jelenleg 1 van)
-- [x] Level 1, 1-5. kör tartalma kész (Green Slime → Blue Slime → mini boss), lásd GAMEPLAY.md "Pályák és körök"
-- [ ] Level 1, 6-9. kör + final boss (10. kör) tartalma
-- [x] Kör-választó UI a Főmenüben (R1-R5, feloldottság szerint)
+- [x] Level 1, mind a 10 köre kész tartalommal (Green → Blue → Purple Slime, mini boss az 5., final boss a 10. körben), lásd GAMEPLAY.md "Pályák és körök" és "Ellenségek" (a HP-görbe indoklásával)
+- [x] Kör-választó UI a Főmenüben (Play gomb → popup, mind a 10 kör, feloldottság szerint)
 - [ ] 2. pálya (ha idáig eljutunk energiával — jelenleg csak Level 1 létezik)
 
 ## Fázis 4 — UI/UX és mentés

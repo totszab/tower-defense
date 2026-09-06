@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 DisplayName = "Blue Slime"
-Hp = 10.0
+Hp = 4.0
 Dmg = 1.0
 Value = 2
 Speed = 1.0

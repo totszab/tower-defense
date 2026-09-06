@@ -14,10 +14,9 @@ public partial class MainMenu : Node2D
     private const int MaxLevel = 5;
     private const float NodeDiameter = 110f;
 
-    // Csak Level 1 létezik egyelőre, 1-5. kör tartalommal (6-10 TBD, lásd
-    // GAMEPLAY.md "Pályák"). Ha ennél több kör kap tartalmat, ezt bővíteni kell.
+    // Level 1 mind a 10 körének van tartalma (lásd GAMEPLAY.md "Pályák").
     // (LevelBuild.MaxPlayableRound ugyanezt a tényt tükrözi, szándékosan duplikált.)
-    private const int PlayableRounds = 5;
+    private const int PlayableRounds = 10;
     private const int TotalRoundsPerLevel = 10;
 
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
@@ -42,6 +41,7 @@ public partial class MainMenu : Node2D
         "res://Data/Enemies/green_triangle.tres",
         "res://Data/Enemies/blue_triangle.tres",
         "res://Data/Enemies/purple_triangle.tres",
+        "res://Data/Enemies/purple_slime_boss.tres",
     };
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()

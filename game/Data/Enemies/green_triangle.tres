@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("1")
 DisplayName = "Green Triangle"
-Hp = 5.0
+Hp = 2.0
 Dmg = 1.0
 Value = 1
 Speed = 2.0

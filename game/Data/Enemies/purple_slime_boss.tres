@@ -5,11 +5,12 @@
 
 [resource]
 script = ExtResource("1")
-DisplayName = "Blue Triangle"
-Hp = 4.0
-Dmg = 1.0
-Value = 2
-Speed = 2.0
+DisplayName = "Purple Slime (Final Boss)"
+Hp = 150.0
+Dmg = 10.0
+Value = 20
+Speed = 1.0
 Sprite = ExtResource("2")
-Tint = Color(0.45, 0.65, 1.6, 1)
-Shape = 1
+Tint = Color(1.3, 0.4, 1.7, 1)
+SpriteScale = 2.6
+HitRadius = 60.0

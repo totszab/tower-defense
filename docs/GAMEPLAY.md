@@ -113,19 +113,22 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 
 ## Ellenségek
 
-**Level 1 tartalom (1-5. kör alapján, véglegesített statok)**:
+**Nehézségi alapszabály (miért ezek a HP-számok)**: egy torony `_enemiesInRange`-ből mindig csak a legrégebb óta bent lévőt (a legelöl járót) lövi — a többi csak vár. Emiatt egy torony csak akkor tud **veszteség nélkül** végigvinni egy folyamatos ellenség-áradatot, ha `EnemyHP / TowerDPS ≤ SpawnInterval` — különben a hátrébb sorban állók csak részleges sebzést kapnak, mielőtt kilépnek a lőtávolból, és a maradék HP-jüktől függetlenül **teljes `Dmg`-et** visznek el becsapódáskor. `SpawnInterval` egységesen 2 mp, az alap torony DPS-e 1 (`Damage 1 × FireRate 1`) — innen jön a HP-skálázás:
 
 | Ellenség | HP | Dmg | Value | Speed | Megjegyzés |
 |---|---|---|---|---|---|
-| Green Slime | 5 | 1 | 1 | 1 tile/mp | Az eredeti bootstrap ellenség, csak átnevezve |
-| Blue Slime | 10 | 1 | 2 | 1 tile/mp | Erősebb, több aranyat ér; 3. körtől jelenik meg |
-| Blue Slime (Mini Boss) | 30 | 5 | 5 | 1 tile/mp | 5. kör záró ellenfele, nagyobb méretben |
+| Green Slime | 2 | 1 | 1 | 1 tile/mp | Alapból (dmg skill nélkül) veszteség nélkül ölhető — 1-2. kör |
+| Blue Slime | 4 | 1 | 2 | 1 tile/mp | 1 `dmg` skill-szint (5 arany, DPS 2) kell a tiszta öléshez — 3-6. kör |
+| Purple Slime | 6 | 2 | 3 | 1 tile/mp | 2 `dmg` skill-szint (15 arany, DPS 3) kell hozzá — 6-10. kör |
+| Blue Slime (Mini Boss) | 30 | 5 | 5 | 1 tile/mp | Önálló egység (nem áradat), a lőtávban töltött ~5,7 mp alatt kell megölni — 5. kör záró ellenfele |
+| Purple Slime (Final Boss) | 150 | 10 | 20 | 1 tile/mp | Kb. 27 összesített DPS kell hozzá (több torony egymást átfedő lőtávval, felturbózott dmg/tűzgyorsasággal) — 10. kör záró ellenfele |
+| Green/Blue/Purple Triangle | 2 / 4 / 6 | 1 / 1 / 2 | 1 / 2 / 3 | **2** tile/mp | Ugyanaz a HP/Dmg/Value mint a hasonló színű Slime-nál, csak dupla sebesség — egyelőre egyik körbe sincs betéve, tartalék variáns jövőbeli körökhöz |
 
 Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 
-**Vizuális variánsok placeholder-tier módon**: nincs egyedi art minden típushoz — ugyanazt a sprite-ot **színezzük** (`Tint`, Godot `Modulate`) és **skálázzuk** (`SpriteScale`, a hitbox-szal együtt `HitRadius`), hogy a típusok megkülönböztethetők legyenek anélkül, hogy új assetre várnánk. A mini/final boss ugyanígy csak egy nagyobbra skálázott, erősebb statú variáns — amikor lesz saját art, csak a `Sprite`/`Tint` mezőt kell cserélni, a rendszer nem változik.
+**Vizuális variánsok placeholder-tier módon**: nincs egyedi art minden típushoz — a kör alakú (Slime) típusoknál ugyanazt a sprite-ot **színezzük** (`Tint`, Godot `Modulate`) és **skálázzuk** (`SpriteScale`, a hitbox-szal együtt `HitRadius`); a háromszög típusoknál (`EnemyData.Shape = Triangle`) nincs is sprite, kód-rajzolt alakzat helyettesíti (`Enemy._Draw()` a pályán, `TriangleIcon` a menükben). A mini/final boss ugyanígy csak egy nagyobbra skálázott, erősebb statú variáns — amikor lesz saját art, csak a `Sprite`/`Tint` mezőt kell cserélni, a rendszer nem változik.
 
-**Célkép (Fázis 3+)**: a fenti a Level 1 első fele; a 6-10. kör tartalma (beleértve a final boss statjait) még TBD, és hosszabb távon minden ellenségnek lehet saját sprite-ja a jelenlegi tint/scale trükk helyett.
+**Célkép (Fázis 3+)**: Level 1 mind a 10 köre kész (lásd "Pályák és körök" lent); hosszabb távon minden ellenségnek lehet saját sprite-ja a jelenlegi tint/scale/kód-rajzolt trükk helyett, és a Triangle variánsok is bekerülhetnek konkrét körökbe (gyorsabb, kevesebb HP-s "raider" hullámként).
 
 **Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (tile/másodperc). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek. Mindkét torony- és ellenség-mérték (`Range`, `Speed`) a rácsos pálya tile-egységére épül — lásd TECHNICAL.md "Pálya rács / koordináta-rendszer".
 
@@ -147,8 +150,11 @@ Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 | 3 | 2 Green Slime + 1 Blue Slime mintázat, 5×, összesen 10 Green + 5 Blue | Kész |
 | 4 | 10× (2 Blue Slime), 2 mp-enként | Kész |
 | 5 | 10× (3 Blue Slime), majd 1 Mini Boss a végén | Kész |
-| 6-9 | — | **TBD** |
-| 10 | — (final boss) | **TBD** |
+| 6 | 2 Blue Slime + 1 Purple Slime mintázat, 6×, összesen 12 Blue + 6 Purple | Kész |
+| 7 | 10× (2 Purple Slime), 2 mp-enként | Kész |
+| 8 | 10× (3 Purple Slime), 2 mp-enként | Kész |
+| 9 | 10× (4 Purple Slime), 2 mp-enként | Kész |
+| 10 | 10× (4 Purple Slime), majd 1 Final Boss a végén | Kész |
 
 ## Hullámok (waves) — adatvezérelt "spawn step" modell
 
@@ -193,4 +199,4 @@ Ez a rendszer **felváltja**, nem kiegészíti a korábbi "difficulty curve" ter
 
 ## Következő lépés
 
-A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell) le van fektetve, Level 1 1-5. köre kész tartalommal. Következő kör: Level 1 6-9. körének megtervezése, a final boss (10. kör) statjai, és hosszabb távon a torony-választék bővítése (jelenleg még csak 1 torony típus van, a GAMEPLAY.md "Tornyok" szekció 3-4 típust vázol fel).
+A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell) le van fektetve, Level 1 mind a 10 köre kész tartalommal (lásd "Pályák és körök" és "Ellenségek" fent). Következő kör: a nehézségi görbe éles teszttel való finomhangolása, és hosszabb távon a torony-választék bővítése (jelenleg még csak 1 torony típus van, a GAMEPLAY.md "Tornyok" szekció 3-4 típust vázol fel).

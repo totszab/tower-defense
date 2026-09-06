@@ -10,8 +10,8 @@ using TowerDefense.UI;
 
 namespace TowerDefense.Levels;
 
-// Level 1 kör-lejátszó. Egyelőre csak Level 1 létezik (1-5. kör tartalommal,
-// 6-10. TBD) — több pálya esetén ez a "melyik pálya" dimenzióval bővül majd
+// Level 1 kör-lejátszó. Egyelőre csak Level 1 létezik (mind a 10 köre kész
+// tartalommal) — több pálya esetén ez a "melyik pálya" dimenzióval bővül majd
 // (GAMEPLAY.md "Pályák", PlayerProgress.HighestUnlockedRound megjegyzése).
 public partial class LevelBuild : Node2D
 {
@@ -21,9 +21,9 @@ public partial class LevelBuild : Node2D
 
     private const int TotalRoundsPerLevel = 10;
 
-    // Csak eddig van tényleges WaveData tartalom (lásd MainMenu.PlayableRounds
-    // — a két konstans szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
-    private const int MaxPlayableRound = 5;
+    // Mind a 10 körnek van WaveData tartalma (lásd MainMenu.PlayableRounds —
+    // a két konstans szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
+    private const int MaxPlayableRound = 10;
     private const int Columns = 13;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
