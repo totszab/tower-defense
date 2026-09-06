@@ -20,6 +20,19 @@ public partial class Enemy : Area2D
     public override void _Ready()
     {
         _currentHp = Data.Hp;
+
+        var sprite = GetNode<Sprite2D>("Sprite2D");
+        sprite.Modulate = Data.Tint;
+        sprite.Scale = new Vector2(Data.SpriteScale, Data.SpriteScale);
+
+        // A CollisionShape2D alap shape-je meg van osztva minden Enemy.tscn
+        // példány között — duplikálni kell, különben egy boss megnagyobbított
+        // hitboxa minden más ellenségre is átterjedne.
+        var collision = GetNode<CollisionShape2D>("CollisionShape2D");
+        var shape = (CircleShape2D)((CircleShape2D)collision.Shape).Duplicate();
+        shape.Radius = Data.HitRadius;
+        collision.Shape = shape;
+
         QueueRedraw();
     }
 
@@ -46,9 +59,10 @@ public partial class Enemy : Area2D
     public override void _Draw()
     {
         var pct = Data.Hp > 0f ? Mathf.Clamp(_currentHp / Data.Hp, 0f, 1f) : 0f;
-        var topLeft = new Vector2(-BarWidth / 2f, BarYOffset);
+        var barWidth = BarWidth * Data.SpriteScale;
+        var topLeft = new Vector2(-barWidth / 2f, BarYOffset * Data.SpriteScale);
 
-        DrawRect(new Rect2(topLeft, new Vector2(BarWidth, BarHeight)), new Color(0.15f, 0.03f, 0.03f, 0.9f));
-        DrawRect(new Rect2(topLeft, new Vector2(BarWidth * pct, BarHeight)), new Color(0.85f, 0.15f, 0.15f, 1f));
+        DrawRect(new Rect2(topLeft, new Vector2(barWidth, BarHeight)), new Color(0.15f, 0.03f, 0.03f, 0.9f));
+        DrawRect(new Rect2(topLeft, new Vector2(barWidth * pct, BarHeight)), new Color(0.85f, 0.15f, 0.15f, 1f));
     }
 }

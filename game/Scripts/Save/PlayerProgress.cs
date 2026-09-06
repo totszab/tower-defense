@@ -2,8 +2,8 @@ using System.Collections.Generic;
 
 namespace TowerDefense.Save;
 
-// Bootstrap subset only — HighestUnlockedLevelIndex és LevelPresets a
-// szint-progresszió munkával kerülnek be (ROADMAP Fázis 4).
+// Bootstrap subset only — LevelPresets a szint-progresszió munkával kerül
+// be (ROADMAP Fázis 4).
 public class PlayerProgress
 {
     public int MetaCurrency { get; set; }
@@ -11,6 +11,10 @@ public class PlayerProgress
     // Skill fa node id -> jelenlegi szint (0-5). Node id-k: "towers" (hub),
     // "hp", "currency", "dmg", "fireRate" (lásd MainMenu.cs).
     public Dictionary<string, int> SkillLevels { get; set; } = new();
+
+    // Egyszerűsített, egy-pályás verzió: hányas kör a legmagasabb feloldott
+    // (Level 1-en belül). Ha több pálya lesz, ez pálya-kulcsos map-re bővül.
+    public int HighestUnlockedRound { get; set; } = 1;
 
     public int GetSkillLevel(string nodeId)
     {

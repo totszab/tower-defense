@@ -30,13 +30,6 @@ offset_right = 320.0
 offset_bottom = 50.0
 text = "Gold: 0"
 
-[node name="PlayButton" type="Button" parent="CanvasLayer"]
-offset_left = 40.0
-offset_top = 650.0
-offset_right = 280.0
-offset_bottom = 690.0
-text = "Start Test Level"
-
 [node name="AddGoldButton" type="Button" parent="CanvasLayer"]
 offset_left = 1040.0
 offset_top = 20.0

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="WaveData" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Data/WaveData.cs" id="1"]
+[ext_resource type="Script" path="res://Scripts/Data/SpawnStepData.cs" id="2"]
+[ext_resource type="Resource" path="res://Data/Enemies/blue_slime.tres" id="3"]
+[ext_resource type="Resource" path="res://Data/Enemies/blue_slime_boss.tres" id="4"]
+
+[sub_resource type="Resource" id="Step_Blue3"]
+script = ExtResource("2")
+Enemy = ExtResource("3")
+Count = 3
+
+[sub_resource type="Resource" id="Step_Boss"]
+script = ExtResource("2")
+Enemy = ExtResource("4")
+Count = 1
+
+[resource]
+script = ExtResource("1")
+SpawnInterval = 2.0
+Steps = Array[SpawnStepData]([SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Blue3"), SubResource("Step_Boss")])

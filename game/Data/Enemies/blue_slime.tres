@@ -5,9 +5,12 @@
 
 [resource]
 script = ExtResource("1")
-DisplayName = "Green Slime"
-Hp = 5.0
+DisplayName = "Blue Slime"
+Hp = 10.0
 Dmg = 1.0
-Value = 1
+Value = 2
 Speed = 1.0
 Sprite = ExtResource("2")
+Tint = Color(0.45, 0.65, 1.6, 1)
+SpriteScale = 1.25
+HitRadius = 35.0

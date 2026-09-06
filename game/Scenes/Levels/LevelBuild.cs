@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using TowerDefense.Core;
+using TowerDefense.Data;
 using TowerDefense.Enemies;
 using TowerDefense.Save;
 using TowerDefense.Towers;
@@ -9,20 +10,23 @@ using TowerDefense.UI;
 
 namespace TowerDefense.Levels;
 
-// Bootstrap smoke test only: hardcoded grid size, single hardcoded wave,
-// no full RunState wiring yet (that arrives ROADMAP Fázis 4). Skill fa
-// hatások (hp/towers/currency/fireRate/dmg) a PlayerProgress-ből olvasva.
+// Level 1 kör-lejátszó. Egyelőre csak Level 1 létezik (1-5. kör tartalommal,
+// 6-10. TBD) — több pálya esetén ez a "melyik pálya" dimenzióval bővül majd
+// (GAMEPLAY.md "Pályák", PlayerProgress.HighestUnlockedRound megjegyzése).
 public partial class LevelBuild : Node2D
 {
+    // MainMenu ezt állítja be ChangeSceneToFile előtt (nincs egyszerűbb módja
+    // paramétert átadni egy scene-váltásnak Godotban).
+    public static int RequestedRoundNumber = 1;
+
+    private const int TotalRoundsPerLevel = 10;
     private const int Columns = 13;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
-    // Bootstrap values only — real per-level numbers belong in a Resource
+    // Bootstrap value only — real per-level numbers belong in a Resource
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
     private const int BaseStartingHp = 3;
-    private const int BaseEnemiesPerWave = 10;
-    private const float SpawnInterval = 2.0f;
 
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
@@ -53,16 +57,18 @@ public partial class LevelBuild : Node2D
     private VBoxContainer _damageListContainer;
 
     private PlayerProgress _progress;
+    private int _roundNumber;
+    private WaveData _wave;
+    private int _currentStepIndex;
+    private int _totalEnemiesThisWave;
     private int _maxTowers;
     private float _goldMultiplier;
-    private int _enemiesThisWave;
 
     private readonly Dictionary<string, float> _damageByTower = new();
     private ulong _roundStartMsec;
 
     private int _hp;
     private int _goldCollected;
-    private int _enemiesSpawned;
     private int _enemiesResolved;
     private bool _roundActive;
 
@@ -96,18 +102,21 @@ public partial class LevelBuild : Node2D
 
         BuildTowerPalette();
 
+        _roundNumber = RequestedRoundNumber;
+        _wave = GD.Load<WaveData>($"res://Data/Waves/Level1/Round{_roundNumber}.tres");
+        _totalEnemiesThisWave = _wave.TotalEnemyCount();
+
         _progress = new LocalFileSaveProvider().Load();
         // "towers" node legalább 1-en indul (lásd PlayerProgress.GetSkillLevel), így
         // egy friss mentésnél is lerakható az első torony.
         _maxTowers = _progress.GetSkillLevel("towers");
         _goldMultiplier = 1f + _progress.GetSkillLevel("currency") * 0.10f;
-        _enemiesThisWave = BaseEnemiesPerWave;
 
         _maxHp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
         _hp = _maxHp;
         UpdateHpBar();
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
-        _enemyCountLabel.Text = $"Enemies this round: {_enemiesThisWave}";
+        _enemyCountLabel.Text = $"Round {_roundNumber} — Enemies: {_totalEnemiesThisWave}";
         _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
         _statsPopup.Visible = false;
 
@@ -116,25 +125,38 @@ public partial class LevelBuild : Node2D
         coin.Position = new Vector2(10, 49);
         GetNode<CanvasLayer>("CanvasLayer").AddChild(coin);
 
-        // Placeholder ikon a soron következő ellenségtípusról az Enemy panelen.
-        var enemyPreview = EnemyScene.Instantiate<Enemy>();
-        var enemyTexture = enemyPreview.GetNode<Sprite2D>("Sprite2D").Texture;
-        enemyPreview.QueueFree();
-
-        // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT kell
-        // állnia, különben a minimum-méret a natív (64x64) textúra alapján rögzül
-        // (KeepSize az alapértelmezett), és a Size beállítása arra clampelődik.
-        var enemyIcon = new TextureRect
-        {
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
-            StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-            Texture = enemyTexture,
-            Position = new Vector2(230, 6),
-            Size = new Vector2(26, 26),
-        };
-        GetNode<Control>("CanvasLayer/EnemyPanel").AddChild(enemyIcon);
+        BuildEnemyPreviewIcons();
 
         QueueRedraw();
+    }
+
+    // Egy kis ikon minden EGYEDI ellenségtípusról, ami ebben a körben előfordul
+    // (pl. Round 3-nál Green + Blue Slime is), hogy tudni lehessen mi jön.
+    private void BuildEnemyPreviewIcons()
+    {
+        var enemyPanel = GetNode<Control>("CanvasLayer/EnemyPanel");
+        var seen = new HashSet<EnemyData>();
+        var x = 230f;
+
+        foreach (var step in _wave.Steps)
+        {
+            if (!seen.Add(step.Enemy)) continue;
+
+            // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
+            // kell állnia, különben a minimum-méret a natív textúraméret alapján
+            // rögzül, és a Size beállítása arra clampelődik.
+            var icon = new TextureRect
+            {
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                Texture = step.Enemy.Sprite,
+                Modulate = step.Enemy.Tint,
+                Position = new Vector2(x, 6),
+                Size = new Vector2(26, 26),
+            };
+            enemyPanel.AddChild(icon);
+            x += 32f;
+        }
     }
 
     public override void _ExitTree()
@@ -238,7 +260,7 @@ public partial class LevelBuild : Node2D
         {
             // Retreat: a kör azonnal véget ér, de az addig gyűjtött arany/statisztika
             // megmarad — nem büntetjük a kilépést, csak korábban zárja le a kört.
-            EndRound("Retreated");
+            EndRound("Retreated", success: false);
         }
         else
         {
@@ -250,7 +272,7 @@ public partial class LevelBuild : Node2D
     {
         _roundActive = true;
         _goldCollected = 0;
-        _enemiesSpawned = 0;
+        _currentStepIndex = 0;
         _enemiesResolved = 0;
         _damageByTower.Clear();
         _roundStartMsec = Time.GetTicksMsec();
@@ -258,25 +280,41 @@ public partial class LevelBuild : Node2D
         _startRoundButton.Text = "Retreat";
         _backButton.Disabled = true;
 
-        SpawnEnemy();
-        _enemiesSpawned = 1;
-        _spawnTimer.WaitTime = SpawnInterval;
+        SpawnStep();
+        _currentStepIndex = 1;
+        _spawnTimer.WaitTime = _wave.SpawnInterval;
         _spawnTimer.Start();
     }
 
     private void OnSpawnTimerTimeout()
     {
-        SpawnEnemy();
-        _enemiesSpawned++;
-        if (_enemiesSpawned >= _enemiesThisWave)
+        if (_currentStepIndex >= _wave.Steps.Length)
+        {
+            _spawnTimer.Stop();
+            return;
+        }
+
+        SpawnStep();
+        _currentStepIndex++;
+        if (_currentStepIndex >= _wave.Steps.Length)
         {
             _spawnTimer.Stop();
         }
     }
 
-    private void SpawnEnemy()
+    private void SpawnStep()
+    {
+        var step = _wave.Steps[_currentStepIndex];
+        for (var i = 0; i < step.Count; i++)
+        {
+            SpawnEnemy(step.Enemy);
+        }
+    }
+
+    private void SpawnEnemy(EnemyData data)
     {
         var enemy = EnemyScene.Instantiate<Enemy>();
+        enemy.Data = data;
         enemy.Position = new Vector2(0, (PathRow + 0.5f) * GridConstants.TileSize);
         enemy.Died += () => OnEnemyKilled(enemy);
         _enemies.AddChild(enemy);
@@ -301,7 +339,7 @@ public partial class LevelBuild : Node2D
 
             if (_hp <= 0)
             {
-                EndRound("Defeat!");
+                EndRound("Defeat!", success: false);
                 return;
             }
 
@@ -318,13 +356,13 @@ public partial class LevelBuild : Node2D
     private void ResolveEnemy()
     {
         _enemiesResolved++;
-        if (_roundActive && _enemiesSpawned >= _enemiesThisWave && _enemiesResolved >= _enemiesThisWave)
+        if (_roundActive && _enemiesResolved >= _totalEnemiesThisWave)
         {
-            EndRound("Success!");
+            EndRound("Success!", success: true);
         }
     }
 
-    private void EndRound(string outcomeTitle)
+    private void EndRound(string outcomeTitle, bool success)
     {
         if (!_roundActive) return;
 
@@ -342,6 +380,12 @@ public partial class LevelBuild : Node2D
         ShowStatsPopup(outcomeTitle);
 
         _progress.MetaCurrency += _goldCollected;
+
+        if (success && _roundNumber >= _progress.HighestUnlockedRound)
+        {
+            _progress.HighestUnlockedRound = Math.Min(_roundNumber + 1, TotalRoundsPerLevel);
+        }
+
         new LocalFileSaveProvider().Save(_progress);
     }
 

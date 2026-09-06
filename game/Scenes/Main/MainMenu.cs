@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using TowerDefense.Levels;
 using TowerDefense.Save;
 using TowerDefense.UI;
 
@@ -11,6 +12,10 @@ public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
     private const float NodeDiameter = 110f;
+
+    // Csak Level 1 létezik egyelőre, 1-5. kör tartalommal (6-10 TBD, lásd
+    // GAMEPLAY.md "Pályák"). Ha ennél több kör kap tartalmat, ezt bővíteni kell.
+    private const int PlayableRounds = 5;
 
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
@@ -43,6 +48,7 @@ public partial class MainMenu : Node2D
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
+    private readonly List<Button> _roundButtons = new();
     private PlayerProgress _progress;
     private Label _goldLabel;
 
@@ -50,7 +56,7 @@ public partial class MainMenu : Node2D
     {
         _progress = new LocalFileSaveProvider().Load();
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
-        GetNode<Button>("CanvasLayer/PlayButton").Pressed += OnPlayPressed;
+        BuildRoundButtons();
         GetNode<Button>("CanvasLayer/AddGoldButton").Pressed += OnAddGoldPressed;
         GetNode<Button>("CanvasLayer/ResetButton").Pressed += OnResetPressed;
 
@@ -167,6 +173,11 @@ public partial class MainMenu : Node2D
     {
         _goldLabel.Text = $"Gold: {_progress.MetaCurrency}";
 
+        for (var i = 0; i < _roundButtons.Count; i++)
+        {
+            _roundButtons[i].Disabled = i + 1 > _progress.HighestUnlockedRound;
+        }
+
         foreach (var entry in _buttons)
         {
             var nodeId = entry.Key;
@@ -181,8 +192,31 @@ public partial class MainMenu : Node2D
         }
     }
 
-    private void OnPlayPressed()
+    private void BuildRoundButtons()
     {
+        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
+        var label = new Label { Position = new Vector2(40, 620), Text = "Level 1:" };
+        canvasLayer.AddChild(label);
+
+        for (var round = 1; round <= PlayableRounds; round++)
+        {
+            var roundNumber = round;
+            var button = new Button
+            {
+                Position = new Vector2(40 + (round - 1) * 70, 650),
+                Size = new Vector2(60, 40),
+                Disabled = round > _progress.HighestUnlockedRound,
+                Text = $"R{round}",
+            };
+            button.Pressed += () => OnRoundPressed(roundNumber);
+            canvasLayer.AddChild(button);
+            _roundButtons.Add(button);
+        }
+    }
+
+    private void OnRoundPressed(int roundNumber)
+    {
+        LevelBuild.RequestedRoundNumber = roundNumber;
         GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }
 
