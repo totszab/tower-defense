@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using TowerDefense.Data;
 using TowerDefense.Levels;
 using TowerDefense.Save;
 using TowerDefense.UI;
@@ -27,6 +28,15 @@ public partial class MainMenu : Node2D
     // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
     // sebzés/élet görbét használjuk placeholderként.
     private static readonly int[] FireRateCosts = DmgHpCosts;
+
+    // Kézzel karbantartott lista — nincs központi "minden ellenség" registry,
+    // amikor új ellenségtípus készül, ide is fel kell venni.
+    private static readonly string[] CodexEnemyPaths =
+    {
+        "res://Data/Enemies/enemy_basic.tres",
+        "res://Data/Enemies/blue_slime.tres",
+        "res://Data/Enemies/blue_slime_boss.tres",
+    };
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()
     {
@@ -67,8 +77,43 @@ public partial class MainMenu : Node2D
         canvasLayer.AddChild(coin);
 
         BuildSkillNodes();
+        BuildCodex();
         RefreshUi();
         QueueRedraw();
+    }
+
+    private void BuildCodex()
+    {
+        var popup = GetNode<Panel>("CanvasLayer/CodexPopup");
+        GetNode<Button>("CanvasLayer/CodexButton").Pressed += () => popup.Visible = true;
+        GetNode<Button>("CanvasLayer/CodexPopup/CloseButton").Pressed += () => popup.Visible = false;
+
+        var cardStyle = UiHelpers.MakeOpaquePanelStyle(new Color(0.14f, 0.15f, 0.18f), new Color(0.35f, 0.37f, 0.42f));
+
+        var grid = GetNode<GridContainer>("CanvasLayer/CodexPopup/IconGrid");
+        foreach (var path in CodexEnemyPaths)
+        {
+            var data = GD.Load<EnemyData>(path);
+
+            var card = new PanelContainer { CustomMinimumSize = new Vector2(80, 80) };
+            card.AddThemeStyleboxOverride("panel", cardStyle);
+            card.TooltipText = $"{data.DisplayName}\nHP: {data.Hp:0}\nDmg: {data.Dmg:0}\nGold: {data.Value}\nSpeed: {data.Speed:0.#} tiles/sec";
+
+            // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
+            // kell állnia, különben a minimum-méret a natív textúraméret alapján
+            // rögzül, és a Size beállítása arra clampelődik.
+            var icon = new TextureRect
+            {
+                ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                Texture = data.Sprite,
+                Modulate = data.Tint,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+
+            card.AddChild(icon);
+            grid.AddChild(card);
+        }
     }
 
     private void OnAddGoldPressed()
