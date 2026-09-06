@@ -84,9 +84,9 @@ vertical_alignment = 1
 text = "3/3"
 
 [node name="TotalGoldLabel" type="Label" parent="CanvasLayer"]
-offset_left = 10.0
+offset_left = 40.0
 offset_top = 45.0
-offset_right = 300.0
+offset_right = 320.0
 offset_bottom = 75.0
 text = "Total Gold: 0"
 
@@ -118,13 +118,21 @@ offset_right = 200.0
 offset_bottom = 50.0
 text = "Towers: 0/1"
 
+[node name="DamageToggleButton" type="Button" parent="CanvasLayer/RightPanel"]
+offset_left = 20.0
+offset_top = 55.0
+offset_right = 200.0
+offset_bottom = 90.0
+clip_text = true
+text = "Dmg Numbers: ON"
+
 [node name="StartRoundButton" type="Button" parent="CanvasLayer/RightPanel"]
 offset_left = 15.0
 offset_top = 640.0
 offset_right = 106.0
 offset_bottom = 685.0
 clip_text = true
-text = "Kör indítása"
+text = "Start Round"
 
 [node name="BackButton" type="Button" parent="CanvasLayer/RightPanel"]
 offset_left = 114.0
@@ -132,7 +140,7 @@ offset_top = 640.0
 offset_right = 205.0
 offset_bottom = 685.0
 clip_text = true
-text = "Kilépés"
+text = "Exit"
 
 [node name="StatsPopup" type="Panel" parent="CanvasLayer"]
 visible = false
@@ -148,14 +156,14 @@ offset_top = 20.0
 offset_right = 500.0
 offset_bottom = 60.0
 theme_override_font_sizes/font_size = 28
-text = "Siker!"
+text = "Success!"
 
 [node name="RoundGoldLabel" type="Label" parent="CanvasLayer/StatsPopup"]
 offset_left = 20.0
 offset_top = 65.0
 offset_right = 600.0
 offset_bottom = 95.0
-text = "Gyűjtött arany a körben: 0"
+text = "Gold collected this round: 0"
 
 [node name="DamageList" type="VBoxContainer" parent="CanvasLayer/StatsPopup"]
 offset_left = 20.0
@@ -168,4 +176,4 @@ offset_left = 628.0
 offset_top = 380.0
 offset_right = 748.0
 offset_bottom = 420.0
-text = "Bezár"
+text = "Close"

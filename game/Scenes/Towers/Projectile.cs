@@ -1,6 +1,7 @@
 using Godot;
 using TowerDefense.Core;
 using TowerDefense.Enemies;
+using TowerDefense.UI;
 
 namespace TowerDefense.Towers;
 
@@ -29,8 +30,10 @@ public partial class Projectile : Node2D
 
         if (toTarget.Length() <= step)
         {
+            var hitPosition = Target.GlobalPosition;
             Target.TakeDamage(Damage);
             DamageTracker.Report(TowerName, Damage);
+            DamageNumberSpawner.Spawn(this, hitPosition, Damage);
             QueueFree();
             return;
         }

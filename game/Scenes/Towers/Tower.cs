@@ -4,6 +4,7 @@ using TowerDefense.Core;
 using TowerDefense.Data;
 using TowerDefense.Enemies;
 using TowerDefense.Save;
+using TowerDefense.UI;
 
 namespace TowerDefense.Towers;
 
@@ -56,6 +57,7 @@ public partial class Tower : Node2D
         {
             target.TakeDamage(damage);
             DamageTracker.Report(Data.DisplayName, damage);
+            DamageNumberSpawner.Spawn(this, target.GlobalPosition, damage);
             return;
         }
 

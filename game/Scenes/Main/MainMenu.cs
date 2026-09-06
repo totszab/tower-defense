@@ -51,16 +51,32 @@ public partial class MainMenu : Node2D
         _progress = new LocalFileSaveProvider().Load();
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
         GetNode<Button>("CanvasLayer/PlayButton").Pressed += OnPlayPressed;
+        GetNode<Button>("CanvasLayer/AddGoldButton").Pressed += OnAddGoldPressed;
+        GetNode<Button>("CanvasLayer/ResetButton").Pressed += OnResetPressed;
 
-        // Placeholder arany-ikon a "Gold" felirat mellé.
+        // Placeholder arany-ikon a "Gold" felirat ELÉ.
         var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
         var coin = UiHelpers.MakeCircle(new Vector2(20, 20), Colors.Gold);
-        coin.Position = new Vector2(150, 22);
+        coin.Position = new Vector2(20, 22);
         canvasLayer.AddChild(coin);
 
         BuildSkillNodes();
         RefreshUi();
         QueueRedraw();
+    }
+
+    private void OnAddGoldPressed()
+    {
+        _progress.MetaCurrency += 1000;
+        new LocalFileSaveProvider().Save(_progress);
+        RefreshUi();
+    }
+
+    private void OnResetPressed()
+    {
+        _progress = new PlayerProgress();
+        new LocalFileSaveProvider().Save(_progress);
+        RefreshUi();
     }
 
     private void BuildSkillNodes()

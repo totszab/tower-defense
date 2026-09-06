@@ -22,7 +22,7 @@ public partial class LevelBuild : Node2D
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
     private const int BaseStartingHp = 3;
     private const int BaseEnemiesPerWave = 10;
-    private const float SpawnInterval = 1.0f;
+    private const float SpawnInterval = 2.0f;
 
     [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
     [Export] public PackedScene EnemyScene { get; set; }
@@ -87,6 +87,9 @@ public partial class LevelBuild : Node2D
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
         GetNode<Button>("CanvasLayer/RightPanel/BackButton").Pressed += OnBackPressed;
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
+        var dmgToggle = GetNode<Button>("CanvasLayer/RightPanel/DamageToggleButton");
+        dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
+        UpdateDamageToggleText(dmgToggle);
         DamageTracker.DamageDealt += OnDamageDealt;
 
         BuildTowerPalette();
@@ -106,10 +109,24 @@ public partial class LevelBuild : Node2D
         _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
         _statsPopup.Visible = false;
 
-        // Placeholder arany-ikon a "Total Gold" felirat mellé.
+        // Placeholder arany-ikon a "Total Gold" felirat ELÉ.
         var coin = UiHelpers.MakeCircle(new Vector2(20, 20), Colors.Gold);
-        coin.Position = new Vector2(140, 49);
+        coin.Position = new Vector2(10, 49);
         GetNode<CanvasLayer>("CanvasLayer").AddChild(coin);
+
+        // Placeholder ikon a soron következő ellenségtípusról az Enemy panelen.
+        var enemyPreview = EnemyScene.Instantiate<Enemy>();
+        var enemyTexture = enemyPreview.GetNode<Sprite2D>("Sprite2D").Texture;
+        enemyPreview.QueueFree();
+
+        var enemyIcon = new TextureRect
+        {
+            Texture = enemyTexture,
+            Position = new Vector2(220, 4),
+            Size = new Vector2(28, 28),
+            ExpandMode = TextureRect.ExpandModeEnum.FitWidthProportional,
+        };
+        GetNode<Control>("CanvasLayer/EnemyPanel").AddChild(enemyIcon);
 
         QueueRedraw();
     }
@@ -130,7 +147,7 @@ public partial class LevelBuild : Node2D
     private void BuildTowerPalette()
     {
         var rightPanel = GetNode<Control>("CanvasLayer/RightPanel");
-        _towerPalette = new VBoxContainer { Position = new Vector2(20, 70) };
+        _towerPalette = new VBoxContainer { Position = new Vector2(20, 105) };
         rightPanel.AddChild(_towerPalette);
 
         foreach (var towerScene in AvailableTowers)
@@ -309,8 +326,8 @@ public partial class LevelBuild : Node2D
 
     private void ShowStatsPopup(bool won)
     {
-        _statsTitleLabel.Text = won ? "Siker!" : "Vereség!";
-        _statsGoldLabel.Text = $"Gyűjtött arany a körben: {_goldCollected}";
+        _statsTitleLabel.Text = won ? "Success!" : "Defeat!";
+        _statsGoldLabel.Text = $"Gold collected this round: {_goldCollected}";
 
         foreach (var child in _damageListContainer.GetChildren())
         {
@@ -335,6 +352,17 @@ public partial class LevelBuild : Node2D
     {
         _statsPopup.Visible = false;
         _startRoundButton.Disabled = false;
+    }
+
+    private void OnDamageTogglePressed(Button button)
+    {
+        DamageTracker.ShowDamageNumbers = !DamageTracker.ShowDamageNumbers;
+        UpdateDamageToggleText(button);
+    }
+
+    private static void UpdateDamageToggleText(Button button)
+    {
+        button.Text = DamageTracker.ShowDamageNumbers ? "Dmg Numbers: ON" : "Dmg Numbers: OFF";
     }
 
     private void OnBackPressed()
