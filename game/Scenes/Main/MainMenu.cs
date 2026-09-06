@@ -16,7 +16,9 @@ public partial class MainMenu : Node2D
 
     // Csak Level 1 létezik egyelőre, 1-5. kör tartalommal (6-10 TBD, lásd
     // GAMEPLAY.md "Pályák"). Ha ennél több kör kap tartalmat, ezt bővíteni kell.
+    // (LevelBuild.MaxPlayableRound ugyanezt a tényt tükrözi, szándékosan duplikált.)
     private const int PlayableRounds = 5;
+    private const int TotalRoundsPerLevel = 10;
 
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
@@ -61,32 +63,41 @@ public partial class MainMenu : Node2D
     private readonly List<Button> _roundButtons = new();
     private PlayerProgress _progress;
     private Label _goldLabel;
+    private CanvasLayer _canvasLayer;
+    private Panel _codexPopup;
+    private Panel _levelSelectPopup;
 
     public override void _Ready()
     {
         _progress = new LocalFileSaveProvider().Load();
+        _canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
-        BuildRoundButtons();
+        BuildPlaySystem();
         GetNode<Button>("CanvasLayer/AddGoldButton").Pressed += OnAddGoldPressed;
         GetNode<Button>("CanvasLayer/ResetButton").Pressed += OnResetPressed;
 
         // Placeholder arany-ikon a "Gold" felirat ELÉ.
-        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
         var coin = UiHelpers.MakeCircle(new Vector2(20, 20), Colors.Gold);
         coin.Position = new Vector2(20, 22);
-        canvasLayer.AddChild(coin);
+        _canvasLayer.AddChild(coin);
 
         BuildSkillNodes();
         BuildCodex();
         RefreshUi();
         QueueRedraw();
+
+        // A skill-fa node-ok (és minden más futásidőben hozzáadott elem) a
+        // popupok UTÁN kerül a fába, tehát alapból FÖLÉJÜK rajzolódna ki —
+        // ezért a popupokat a végén a gyerek-lista végére toljuk.
+        _canvasLayer.MoveChild(_codexPopup, _canvasLayer.GetChildCount() - 1);
+        _canvasLayer.MoveChild(_levelSelectPopup, _canvasLayer.GetChildCount() - 1);
     }
 
     private void BuildCodex()
     {
-        var popup = GetNode<Panel>("CanvasLayer/CodexPopup");
-        GetNode<Button>("CanvasLayer/CodexButton").Pressed += () => popup.Visible = true;
-        GetNode<Button>("CanvasLayer/CodexPopup/CloseButton").Pressed += () => popup.Visible = false;
+        _codexPopup = GetNode<Panel>("CanvasLayer/CodexPopup");
+        GetNode<Button>("CanvasLayer/CodexButton").Pressed += () => _codexPopup.Visible = true;
+        GetNode<Button>("CanvasLayer/CodexPopup/CloseButton").Pressed += () => _codexPopup.Visible = false;
 
         var cardStyle = UiHelpers.MakeOpaquePanelStyle(new Color(0.14f, 0.15f, 0.18f), new Color(0.35f, 0.37f, 0.42f));
 
@@ -132,7 +143,6 @@ public partial class MainMenu : Node2D
 
     private void BuildSkillNodes()
     {
-        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
         var normalStyle = MakeNodeStyle(new Color(0.10f, 0.16f, 0.32f), new Color(0.35f, 0.55f, 0.95f));
         var hoverStyle = MakeNodeStyle(new Color(0.16f, 0.24f, 0.46f), new Color(0.5f, 0.7f, 1f));
         var pressedStyle = MakeNodeStyle(new Color(0.08f, 0.13f, 0.26f), new Color(0.35f, 0.55f, 0.95f));
@@ -157,7 +167,7 @@ public partial class MainMenu : Node2D
             button.AddThemeColorOverride("font_hover_color", Colors.White);
             button.Pressed += () => OnNodePressed(nodeId);
 
-            canvasLayer.AddChild(button);
+            _canvasLayer.AddChild(button);
             _buttons[nodeId] = button;
         }
     }
@@ -218,7 +228,10 @@ public partial class MainMenu : Node2D
     {
         _goldLabel.Text = $"Gold: {_progress.MetaCurrency}";
 
-        for (var i = 0; i < _roundButtons.Count; i++)
+        // Csak a ténylegesen tartalommal rendelkező körök disabled-állapota
+        // változhat a progressz szerint — a PlayableRounds utániak véglegesen
+        // le vannak tiltva (nincs mit betölteni), ne írjuk felül.
+        for (var i = 0; i < PlayableRounds; i++)
         {
             _roundButtons[i].Disabled = i + 1 > _progress.HighestUnlockedRound;
         }
@@ -237,24 +250,33 @@ public partial class MainMenu : Node2D
         }
     }
 
-    private void BuildRoundButtons()
+    private void BuildPlaySystem()
     {
-        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
-        var label = new Label { Position = new Vector2(40, 620), Text = "Level 1:" };
-        canvasLayer.AddChild(label);
+        _levelSelectPopup = GetNode<Panel>("CanvasLayer/LevelSelectPopup");
+        GetNode<Button>("CanvasLayer/PlayButton").Pressed += () => _levelSelectPopup.Visible = true;
+        GetNode<Button>("CanvasLayer/LevelSelectPopup/CloseButton").Pressed += () => _levelSelectPopup.Visible = false;
 
-        for (var round = 1; round <= PlayableRounds; round++)
+        // Csak Level 1 létezik — a "Level 1" gomb egyelőre dísz (mindig az
+        // egyetlen, automatikusan kiválasztott opciót mutatja), de előkészíti
+        // a UI-t arra, ha majd több pálya lesz (GAMEPLAY.md "Pályák és körök").
+        var roundGrid = GetNode<GridContainer>("CanvasLayer/LevelSelectPopup/RoundGrid");
+        for (var round = 1; round <= TotalRoundsPerLevel; round++)
         {
             var roundNumber = round;
-            var button = new Button
+            var button = new Button { CustomMinimumSize = new Vector2(130, 60), Text = $"Round {round}" };
+
+            if (round > PlayableRounds)
             {
-                Position = new Vector2(40 + (round - 1) * 70, 650),
-                Size = new Vector2(60, 40),
-                Disabled = round > _progress.HighestUnlockedRound,
-                Text = $"R{round}",
-            };
+                button.Disabled = true;
+                button.TooltipText = "Coming soon";
+            }
+            else
+            {
+                button.Disabled = round > _progress.HighestUnlockedRound;
+            }
+
             button.Pressed += () => OnRoundPressed(roundNumber);
-            canvasLayer.AddChild(button);
+            roundGrid.AddChild(button);
             _roundButtons.Add(button);
         }
     }

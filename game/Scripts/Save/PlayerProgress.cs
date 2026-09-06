@@ -2,8 +2,7 @@ using System.Collections.Generic;
 
 namespace TowerDefense.Save;
 
-// Bootstrap subset only — LevelPresets a szint-progresszió munkával kerül
-// be (ROADMAP Fázis 4).
+// Bootstrap subset only.
 public class PlayerProgress
 {
     public int MetaCurrency { get; set; }
@@ -15,6 +14,11 @@ public class PlayerProgress
     // Egyszerűsített, egy-pályás verzió: hányas kör a legmagasabb feloldott
     // (Level 1-en belül). Ha több pálya lesz, ez pálya-kulcsos map-re bővül.
     public int HighestUnlockedRound { get; set; } = 1;
+
+    // Pályánként (jelenleg csak Level 1) EGY mentett torony-elrendezés,
+    // amit a pálya BÁRMELYIK körének indításakor alapból alkalmazunk.
+    // Ha több pálya lesz, ez is pálya-kulcsos map-re bővül.
+    public List<PresetTowerEntry> Level1Preset { get; set; } = new();
 
     public int GetSkillLevel(string nodeId)
     {

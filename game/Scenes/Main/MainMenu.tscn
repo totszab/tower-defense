@@ -60,6 +60,52 @@ offset_bottom = 80.0
 clip_text = true
 text = "Codex"
 
+[node name="PlayButton" type="Button" parent="CanvasLayer"]
+offset_left = 40.0
+offset_top = 650.0
+offset_right = 200.0
+offset_bottom = 690.0
+text = "Play"
+
+[node name="LevelSelectPopup" type="Panel" parent="CanvasLayer"]
+visible = false
+offset_left = 256.0
+offset_top = 144.0
+offset_right = 1024.0
+offset_bottom = 576.0
+theme_override_styles/panel = SubResource("PanelStyle")
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/LevelSelectPopup"]
+offset_left = 20.0
+offset_top = 15.0
+offset_right = 400.0
+offset_bottom = 45.0
+theme_override_font_sizes/font_size = 24
+text = "Select Round"
+
+[node name="Level1Button" type="Button" parent="CanvasLayer/LevelSelectPopup"]
+offset_left = 20.0
+offset_top = 55.0
+offset_right = 170.0
+offset_bottom = 92.0
+text = "✓ Level 1"
+
+[node name="RoundGrid" type="GridContainer" parent="CanvasLayer/LevelSelectPopup"]
+offset_left = 20.0
+offset_top = 110.0
+offset_right = 748.0
+offset_bottom = 400.0
+columns = 5
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="CloseButton" type="Button" parent="CanvasLayer/LevelSelectPopup"]
+offset_left = 648.0
+offset_top = 55.0
+offset_right = 748.0
+offset_bottom = 92.0
+text = "Close"
+
 [node name="CodexPopup" type="Panel" parent="CanvasLayer"]
 visible = false
 offset_left = 340.0

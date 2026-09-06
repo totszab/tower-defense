@@ -52,10 +52,12 @@ public partial class LevelBuild : Node2D
     private Label _hpBarLabel;
     private int _maxHp;
     private Label _totalGoldLabel;
-    private Label _enemyCountLabel;
+    private Label _roundLabel;
+    private VBoxContainer _enemyBreakdown;
     private Label _towerCountLabel;
     private Button _startRoundButton;
     private Button _backButton;
+    private Button _resetTowersButton;
     private Timer _spawnTimer;
 
     private Panel _statsPopup;
@@ -63,6 +65,7 @@ public partial class LevelBuild : Node2D
     private Label _statsGoldLabel;
     private VBoxContainer _damageListContainer;
     private Button _nextRoundButton;
+    private Button _savePresetButton;
 
     private PlayerProgress _progress;
     private int _roundNumber;
@@ -87,10 +90,12 @@ public partial class LevelBuild : Node2D
         _hpBarFill = GetNode<ColorRect>("CanvasLayer/HpBarBg/HpBarFill");
         _hpBarLabel = GetNode<Label>("CanvasLayer/HpBarBg/HpBarLabel");
         _totalGoldLabel = GetNode<Label>("CanvasLayer/TotalGoldLabel");
-        _enemyCountLabel = GetNode<Label>("CanvasLayer/EnemyPanel/EnemyCountLabel");
+        _roundLabel = GetNode<Label>("CanvasLayer/EnemyPanel/RoundLabel");
+        _enemyBreakdown = GetNode<VBoxContainer>("CanvasLayer/EnemyPanel/Breakdown");
         _towerCountLabel = GetNode<Label>("CanvasLayer/RightPanel/TowerCountLabel");
         _startRoundButton = GetNode<Button>("CanvasLayer/RightPanel/StartRoundButton");
         _backButton = GetNode<Button>("CanvasLayer/RightPanel/BackButton");
+        _resetTowersButton = GetNode<Button>("CanvasLayer/RightPanel/ResetTowersButton");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
 
         _statsPopup = GetNode<Panel>("CanvasLayer/StatsPopup");
@@ -98,6 +103,7 @@ public partial class LevelBuild : Node2D
         _statsGoldLabel = GetNode<Label>("CanvasLayer/StatsPopup/RoundGoldLabel");
         _damageListContainer = GetNode<VBoxContainer>("CanvasLayer/StatsPopup/DamageList");
         _nextRoundButton = GetNode<Button>("CanvasLayer/StatsPopup/NextRoundButton");
+        _savePresetButton = GetNode<Button>("CanvasLayer/StatsPopup/SavePresetButton");
 
         _towerInfoPopup = GetNode<Panel>("CanvasLayer/TowerInfoPopup");
         _towerInfoLabel = GetNode<Label>("CanvasLayer/TowerInfoPopup/InfoLabel");
@@ -110,6 +116,8 @@ public partial class LevelBuild : Node2D
         _backButton.Pressed += OnBackPressed;
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
         _nextRoundButton.Pressed += OnNextRoundPressed;
+        _savePresetButton.Pressed += SavePreset;
+        _resetTowersButton.Pressed += OnResetTowersPressed;
         var dmgToggle = GetNode<Button>("CanvasLayer/DamageTogglePanel/DamageToggleButton");
         dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
         UpdateDamageToggleText(dmgToggle);
@@ -131,7 +139,7 @@ public partial class LevelBuild : Node2D
         _hp = _maxHp;
         UpdateHpBar();
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
-        _enemyCountLabel.Text = $"Round {_roundNumber} — Enemies: {_totalEnemiesThisWave}";
+        _roundLabel.Text = $"Round {_roundNumber}";
         _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
         _statsPopup.Visible = false;
 
@@ -140,22 +148,33 @@ public partial class LevelBuild : Node2D
         coin.Position = new Vector2(10, 49);
         GetNode<CanvasLayer>("CanvasLayer").AddChild(coin);
 
-        BuildEnemyPreviewIcons();
+        BuildEnemyBreakdown();
+        ApplyPreset();
 
         QueueRedraw();
     }
 
-    // Egy kis ikon minden EGYEDI ellenségtípusról, ami ebben a körben előfordul
-    // (pl. Round 3-nál Green + Blue Slime is), hogy tudni lehessen mi jön.
-    private void BuildEnemyPreviewIcons()
+    // Típusonként külön sor (ikon + "Nx Name"), ne egy összesített szám —
+    // Round 3-nál pl. "10x Green Slime" ÉS "5x Blue Slime" külön sorban.
+    private void BuildEnemyBreakdown()
     {
-        var enemyPanel = GetNode<Control>("CanvasLayer/EnemyPanel");
-        var seen = new HashSet<EnemyData>();
-        var x = 230f;
+        var counts = new Dictionary<EnemyData, int>();
+        var order = new List<EnemyData>();
 
         foreach (var step in _wave.Steps)
         {
-            if (!seen.Add(step.Enemy)) continue;
+            if (!counts.ContainsKey(step.Enemy))
+            {
+                counts[step.Enemy] = 0;
+                order.Add(step.Enemy);
+            }
+
+            counts[step.Enemy] += step.Count;
+        }
+
+        foreach (var data in order)
+        {
+            var row = new HBoxContainer();
 
             // Fontos a property-sorrend: ExpandMode-nak a Texture beállítása ELŐTT
             // kell állnia, különben a minimum-méret a natív textúraméret alapján
@@ -164,13 +183,15 @@ public partial class LevelBuild : Node2D
             {
                 ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
                 StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                Texture = step.Enemy.Sprite,
-                Modulate = step.Enemy.Tint,
-                Position = new Vector2(x, 6),
-                Size = new Vector2(26, 26),
+                Texture = data.Sprite,
+                Modulate = data.Tint,
+                CustomMinimumSize = new Vector2(22, 22),
             };
-            enemyPanel.AddChild(icon);
-            x += 32f;
+            var label = new Label { Text = $"{counts[data]}x {data.DisplayName}" };
+
+            row.AddChild(icon);
+            row.AddChild(label);
+            _enemyBreakdown.AddChild(row);
         }
     }
 
@@ -184,6 +205,24 @@ public partial class LevelBuild : Node2D
         if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
         {
             OnBoardClicked(GetLocalMousePosition());
+        }
+    }
+
+    // _Input (nem _UnhandledInput) fut le MINDEN kattintásra, még azokra is,
+    // amiket egy GUI Control (gomb, panel) elnyel — enélkül a torony-infó
+    // popup csak akkor tűnt el, ha pont a pályára kattintottunk. Csak akkor
+    // csinál bármit, ha a kattintás a pályán KÍVÜL esik, hogy a
+    // _UnhandledInput-beli toggle-logikát (ugyanarra a toronyra kattintva
+    // becsukja) ne írja felül.
+    public override void _Input(InputEvent @event)
+    {
+        if (_selectedInfoTower == null) return;
+        if (@event is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mouseButton) return;
+
+        var boardRect = new Rect2(GlobalPosition, new Vector2(Columns * GridConstants.TileSize, 3 * GridConstants.TileSize));
+        if (!boardRect.HasPoint(mouseButton.Position))
+        {
+            HideTowerInfo();
         }
     }
 
@@ -299,6 +338,7 @@ public partial class LevelBuild : Node2D
     private void SetBuildingEnabled(bool enabled)
     {
         _buildingEnabled = enabled;
+        _resetTowersButton.Disabled = !enabled;
         foreach (var child in _towerPalette.GetChildren())
         {
             if (child is BaseButton button)
@@ -306,6 +346,71 @@ public partial class LevelBuild : Node2D
                 button.Disabled = !enabled;
             }
         }
+    }
+
+    private void OnResetTowersPressed()
+    {
+        if (!_buildingEnabled) return;
+
+        foreach (var tower in _towersByTile.Values)
+        {
+            tower.QueueFree();
+        }
+
+        _towersByTile.Clear();
+        _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
+        HideTowerInfo();
+    }
+
+    // Ha van mentett preset ehhez a pályához (Level 1 bármelyik köréhez közös),
+    // automatikusan lerakja induláskor — a _maxTowers/_towersByTile-nak már
+    // készen kell állnia, mielőtt ez lefut.
+    private void ApplyPreset()
+    {
+        foreach (var entry in _progress.Level1Preset)
+        {
+            if (_towersByTile.Count >= _maxTowers) break;
+
+            var tile = new Vector2I(entry.TileX, entry.TileY);
+            if (_towersByTile.ContainsKey(tile)) continue;
+
+            PackedScene scene = null;
+            foreach (var candidate in AvailableTowers)
+            {
+                if (candidate.ResourcePath == entry.TowerScenePath)
+                {
+                    scene = candidate;
+                    break;
+                }
+            }
+            if (scene == null) continue;
+
+            var tower = scene.Instantiate<Tower>();
+            tower.Position = new Vector2(
+                (tile.X + 0.5f) * GridConstants.TileSize,
+                (tile.Y + 0.5f) * GridConstants.TileSize);
+            _towers.AddChild(tower);
+            _towersByTile[tile] = tower;
+        }
+
+        _towerCountLabel.Text = $"Towers: {_towersByTile.Count}/{_maxTowers}";
+    }
+
+    private void SavePreset()
+    {
+        var preset = new List<PresetTowerEntry>();
+        foreach (var entry in _towersByTile)
+        {
+            preset.Add(new PresetTowerEntry
+            {
+                TileX = entry.Key.X,
+                TileY = entry.Key.Y,
+                TowerScenePath = entry.Value.SceneFilePath,
+            });
+        }
+
+        _progress.Level1Preset = preset;
+        new LocalFileSaveProvider().Save(_progress);
     }
 
     private void OnStartOrRetreatPressed()
