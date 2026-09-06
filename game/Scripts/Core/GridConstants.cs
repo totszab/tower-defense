@@ -2,5 +2,5 @@ namespace TowerDefense.Core;
 
 public static class GridConstants
 {
-    public const int TileSize = 64;
+    public const int TileSize = 80;
 }

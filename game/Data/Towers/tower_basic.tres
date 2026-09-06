@@ -6,6 +6,7 @@
 
 [resource]
 script = ExtResource("1")
+DisplayName = "Rocket Tower"
 Damage = 1.0
 FireRate = 1.0
 Range = 3.0

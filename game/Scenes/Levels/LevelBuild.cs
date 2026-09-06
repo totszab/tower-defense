@@ -10,10 +10,10 @@ namespace TowerDefense.Levels;
 
 // Bootstrap smoke test only: hardcoded grid size, single hardcoded wave,
 // no full RunState wiring yet (that arrives ROADMAP Fázis 4). Skill fa
-// hatások (hp/towers/currency/enemy) a PlayerProgress-ből olvasva.
+// hatások (hp/towers/currency/fireRate/dmg) a PlayerProgress-ből olvasva.
 public partial class LevelBuild : Node2D
 {
-    private const int Columns = 10;
+    private const int Columns = 13;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
@@ -35,14 +35,24 @@ public partial class LevelBuild : Node2D
     private bool _buildingEnabled = true;
 
     private Label _hpLabel;
-    private Label _resultLabel;
+    private Label _totalGoldLabel;
+    private Label _enemyCountLabel;
+    private Label _towerCountLabel;
     private Button _startRoundButton;
     private Timer _spawnTimer;
+
+    private Panel _statsPopup;
+    private Label _statsTitleLabel;
+    private Label _statsGoldLabel;
+    private VBoxContainer _damageListContainer;
 
     private PlayerProgress _progress;
     private int _maxTowers;
     private float _goldMultiplier;
     private int _enemiesThisWave;
+
+    private readonly Dictionary<string, float> _damageByTower = new();
+    private ulong _roundStartMsec;
 
     private int _hp;
     private int _goldCollected;
@@ -55,14 +65,23 @@ public partial class LevelBuild : Node2D
         _towers = GetNode<Node2D>("Towers");
         _enemies = GetNode<Node2D>("Enemies");
         _hpLabel = GetNode<Label>("CanvasLayer/HpLabel");
-        _resultLabel = GetNode<Label>("CanvasLayer/ResultLabel");
-        _startRoundButton = GetNode<Button>("CanvasLayer/StartRoundButton");
+        _totalGoldLabel = GetNode<Label>("CanvasLayer/TotalGoldLabel");
+        _enemyCountLabel = GetNode<Label>("CanvasLayer/EnemyCountLabel");
+        _towerCountLabel = GetNode<Label>("CanvasLayer/RightPanel/TowerCountLabel");
+        _startRoundButton = GetNode<Button>("CanvasLayer/RightPanel/StartRoundButton");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
+
+        _statsPopup = GetNode<Panel>("CanvasLayer/StatsPopup");
+        _statsTitleLabel = GetNode<Label>("CanvasLayer/StatsPopup/TitleLabel");
+        _statsGoldLabel = GetNode<Label>("CanvasLayer/StatsPopup/RoundGoldLabel");
+        _damageListContainer = GetNode<VBoxContainer>("CanvasLayer/StatsPopup/DamageList");
 
         _startRoundButton.Pressed += OnStartRoundPressed;
         _spawnTimer.Timeout += OnSpawnTimerTimeout;
         GetNode<Area2D>("GoalArea").AreaEntered += OnGoalEntered;
-        GetNode<Button>("CanvasLayer/BackButton").Pressed += OnBackPressed;
+        GetNode<Button>("CanvasLayer/RightPanel/BackButton").Pressed += OnBackPressed;
+        GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
+        DamageTracker.DamageDealt += OnDamageDealt;
 
         BuildTowerPalette();
 
@@ -75,8 +94,16 @@ public partial class LevelBuild : Node2D
 
         _hp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
         UpdateHpLabel();
-        _resultLabel.Visible = false;
+        _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
+        _enemyCountLabel.Text = $"Enemies this round: {_enemiesThisWave}";
+        _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
+        _statsPopup.Visible = false;
         QueueRedraw();
+    }
+
+    public override void _ExitTree()
+    {
+        DamageTracker.DamageDealt -= OnDamageDealt;
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -89,9 +116,9 @@ public partial class LevelBuild : Node2D
 
     private void BuildTowerPalette()
     {
-        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
-        _towerPalette = new VBoxContainer { Position = new Vector2(700, 10) };
-        canvasLayer.AddChild(_towerPalette);
+        var rightPanel = GetNode<Control>("CanvasLayer/RightPanel");
+        _towerPalette = new VBoxContainer { Position = new Vector2(20, 70) };
+        rightPanel.AddChild(_towerPalette);
 
         foreach (var towerScene in AvailableTowers)
         {
@@ -154,6 +181,7 @@ public partial class LevelBuild : Node2D
             (tile.Y + 0.5f) * GridConstants.TileSize);
         _towers.AddChild(tower);
         _occupiedTiles.Add(tile);
+        _towerCountLabel.Text = $"Towers: {_occupiedTiles.Count}/{_maxTowers}";
     }
 
     private void SetBuildingEnabled(bool enabled)
@@ -176,7 +204,8 @@ public partial class LevelBuild : Node2D
         _goldCollected = 0;
         _enemiesSpawned = 0;
         _enemiesResolved = 0;
-        _resultLabel.Visible = false;
+        _damageByTower.Clear();
+        _roundStartMsec = Time.GetTicksMsec();
         SetBuildingEnabled(false);
         _startRoundButton.Disabled = true;
 
@@ -207,6 +236,7 @@ public partial class LevelBuild : Node2D
     private void OnEnemyKilled(Enemy enemy)
     {
         _goldCollected += Mathf.RoundToInt(enemy.Data.Value * _goldMultiplier);
+        _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency + _goldCollected}";
         ResolveEnemy();
     }
 
@@ -230,6 +260,12 @@ public partial class LevelBuild : Node2D
         }
     }
 
+    private void OnDamageDealt(string towerName, float amount)
+    {
+        if (!_roundActive) return;
+        _damageByTower[towerName] = _damageByTower.GetValueOrDefault(towerName) + amount;
+    }
+
     private void ResolveEnemy()
     {
         _enemiesResolved++;
@@ -246,20 +282,46 @@ public partial class LevelBuild : Node2D
         _roundActive = false;
         _spawnTimer.Stop();
         SetBuildingEnabled(true);
-        _startRoundButton.Disabled = false;
 
         foreach (var enemy in _enemies.GetChildren())
         {
             enemy.QueueFree();
         }
 
-        _resultLabel.Text = won
-            ? $"Kör vége! Gyűjtött arany: {_goldCollected}"
-            : $"Vereség! Gyűjtött arany: {_goldCollected}";
-        _resultLabel.Visible = true;
+        ShowStatsPopup(won);
 
         _progress.MetaCurrency += _goldCollected;
         new LocalFileSaveProvider().Save(_progress);
+    }
+
+    private void ShowStatsPopup(bool won)
+    {
+        _statsTitleLabel.Text = won ? "Siker!" : "Vereség!";
+        _statsGoldLabel.Text = $"Gyűjtött arany a körben: {_goldCollected}";
+
+        foreach (var child in _damageListContainer.GetChildren())
+        {
+            child.QueueFree();
+        }
+
+        var elapsedSeconds = Mathf.Max(0.001f, (Time.GetTicksMsec() - _roundStartMsec) / 1000f);
+        foreach (var entry in _damageByTower)
+        {
+            var dps = entry.Value / elapsedSeconds;
+            _damageListContainer.AddChild(new Label
+            {
+                Text = $"{entry.Key} — Total: {entry.Value:0} dmg, {dps:0.0} dmg/sec",
+            });
+        }
+
+        _statsPopup.Visible = true;
+        _startRoundButton.Disabled = true;
+    }
+
+    private void OnCloseStatsPressed()
+    {
+        _statsPopup.Visible = false;
+        _startRoundButton.Disabled = false;
     }
 
     private void OnBackPressed()

@@ -53,7 +53,7 @@ A cél: kezdetben ingyenes assetekkel dolgozunk, később lecserélhető legyen 
 ## Pálya rács / koordináta-rendszer
 
 - **Rácsos (tile-alapú)** elrendezés — a pálya egy N×M rács, minden mező vagy útvonal, vagy építhető (vagy egyik sem, pl. dekoráció/akadály)
-- **Tile méret: 64×64 px** — ez a Kenney.nl és a legtöbb ingyenes 2D TD asset pack natív mérete, így asset csere esetén nem kell újraskálázni
+- **Tile méret: 80×80 px logikai render-méret** — a natív asset méret (Kenney.nl, 64×64) 1.25×-ös sprite-skálázással jelenik meg nagyobb, teljes képernyőt jobban kitöltő tile-okként. A `GridConstants.TileSize` (a `Range`/`Speed` egysége) ezt a 80px-es értéket tükrözi, nem a natív asset méretet.
 - A `Range` (torony hatótávolság) és a `Speed` (ellenség sebesség) **tile-egységben** értendő, nem raw pixelben — pl. `Range = 3` azt jelenti, 3 tile sugarú körben lát célt a torony. Ez balance-oláskor is átláthatóbb, mint a pixelszám.
 - Pálya-méret (N×M) pályánként eltérhet, nincs egységes rögzített méret — ez a level layout kérdése (GAMEPLAY.md "Pályák")
 

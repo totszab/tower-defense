@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Godot;
+using TowerDefense.Core;
 using TowerDefense.Data;
 using TowerDefense.Enemies;
 using TowerDefense.Save;
@@ -54,6 +55,7 @@ public partial class Tower : Node2D
         if (Data.ProjectileScene == null)
         {
             target.TakeDamage(damage);
+            DamageTracker.Report(Data.DisplayName, damage);
             return;
         }
 
@@ -61,6 +63,7 @@ public partial class Tower : Node2D
         projectile.GlobalPosition = GlobalPosition;
         projectile.Target = target;
         projectile.Damage = damage;
+        projectile.TowerName = Data.DisplayName;
         GetTree().CurrentScene.AddChild(projectile);
     }
 

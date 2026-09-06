@@ -9,6 +9,8 @@ namespace TowerDefense.MainMenu;
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
+    private const float NodeDiameter = 110f;
+
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
 
@@ -22,11 +24,11 @@ public partial class MainMenu : Node2D
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()
     {
-        ["towers"] = new Vector2(500, 300),
-        ["hp"] = new Vector2(500, 160),
-        ["fireRate"] = new Vector2(500, 440),
-        ["currency"] = new Vector2(680, 300),
-        ["dmg"] = new Vector2(320, 300),
+        ["towers"] = new Vector2(640, 340),
+        ["hp"] = new Vector2(640, 200),
+        ["fireRate"] = new Vector2(640, 480),
+        ["currency"] = new Vector2(820, 340),
+        ["dmg"] = new Vector2(460, 340),
     };
 
     // Tooltip (hover) szöveg: az egy szintnyi (marginális) hatás, angolul.
@@ -47,23 +49,61 @@ public partial class MainMenu : Node2D
     {
         _progress = new LocalFileSaveProvider().Load();
         _goldLabel = GetNode<Label>("CanvasLayer/GoldLabel");
-
-        _buttons["towers"] = GetNode<Button>("CanvasLayer/HubButton");
-        _buttons["hp"] = GetNode<Button>("CanvasLayer/UpButton");
-        _buttons["fireRate"] = GetNode<Button>("CanvasLayer/DownButton");
-        _buttons["currency"] = GetNode<Button>("CanvasLayer/RightButton");
-        _buttons["dmg"] = GetNode<Button>("CanvasLayer/LeftButton");
-
-        foreach (var entry in _buttons)
-        {
-            var nodeId = entry.Key;
-            entry.Value.Pressed += () => OnNodePressed(nodeId);
-        }
-
         GetNode<Button>("CanvasLayer/PlayButton").Pressed += OnPlayPressed;
 
+        BuildSkillNodes();
         RefreshUi();
         QueueRedraw();
+    }
+
+    private void BuildSkillNodes()
+    {
+        var canvasLayer = GetNode<CanvasLayer>("CanvasLayer");
+        var normalStyle = MakeNodeStyle(new Color(0.10f, 0.16f, 0.32f), new Color(0.35f, 0.55f, 0.95f));
+        var hoverStyle = MakeNodeStyle(new Color(0.16f, 0.24f, 0.46f), new Color(0.5f, 0.7f, 1f));
+        var pressedStyle = MakeNodeStyle(new Color(0.08f, 0.13f, 0.26f), new Color(0.35f, 0.55f, 0.95f));
+
+        foreach (var entry in NodePositions)
+        {
+            var nodeId = entry.Key;
+            var center = entry.Value;
+
+            var button = new Button
+            {
+                Position = center - new Vector2(NodeDiameter, NodeDiameter) / 2f,
+                CustomMinimumSize = new Vector2(NodeDiameter, NodeDiameter),
+                Size = new Vector2(NodeDiameter, NodeDiameter),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                ClipText = true,
+            };
+            button.AddThemeStyleboxOverride("normal", normalStyle);
+            button.AddThemeStyleboxOverride("hover", hoverStyle);
+            button.AddThemeStyleboxOverride("pressed", pressedStyle);
+            button.AddThemeColorOverride("font_color", Colors.White);
+            button.AddThemeColorOverride("font_hover_color", Colors.White);
+            button.Pressed += () => OnNodePressed(nodeId);
+
+            canvasLayer.AddChild(button);
+            _buttons[nodeId] = button;
+        }
+    }
+
+    private static StyleBoxFlat MakeNodeStyle(Color fill, Color border)
+    {
+        var style = new StyleBoxFlat
+        {
+            BgColor = fill,
+            BorderColor = border,
+            BorderWidthTop = 3,
+            BorderWidthBottom = 3,
+            BorderWidthLeft = 3,
+            BorderWidthRight = 3,
+            CornerRadiusTopLeft = (int)(NodeDiameter / 2f),
+            CornerRadiusTopRight = (int)(NodeDiameter / 2f),
+            CornerRadiusBottomLeft = (int)(NodeDiameter / 2f),
+            CornerRadiusBottomRight = (int)(NodeDiameter / 2f),
+        };
+        return style;
     }
 
     private static int[] CostsFor(string nodeId) => nodeId switch
@@ -111,7 +151,7 @@ public partial class MainMenu : Node2D
             var level = _progress.GetSkillLevel(nodeId);
             var costs = CostsFor(nodeId);
 
-            button.Text = $"{CumulativeText(nodeId, level)}, {level}/{MaxLevel}";
+            button.Text = $"{CumulativeText(nodeId, level)}\n{level}/{MaxLevel}";
             button.TooltipText = level >= MaxLevel
                 ? $"{NodePerLevelText[nodeId]}\nMAX LEVEL"
                 : $"{NodePerLevelText[nodeId]}\nCost: {costs[level]} gold";
@@ -129,7 +169,10 @@ public partial class MainMenu : Node2D
         foreach (var entry in NodePositions)
         {
             if (entry.Key == "towers") continue;
-            DrawLine(hub, entry.Value, new Color(1f, 1f, 1f, 0.5f), 3f);
+            var dir = (entry.Value - hub).Normalized();
+            var start = hub + dir * (NodeDiameter / 2f);
+            var end = entry.Value - dir * (NodeDiameter / 2f);
+            DrawLine(start, end, new Color(0.5f, 0.7f, 1f, 0.6f), 4f);
         }
     }
 }

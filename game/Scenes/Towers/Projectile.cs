@@ -1,4 +1,5 @@
 using Godot;
+using TowerDefense.Core;
 using TowerDefense.Enemies;
 
 namespace TowerDefense.Towers;
@@ -8,6 +9,7 @@ public partial class Projectile : Node2D
     public Enemy Target { get; set; }
     public float Damage { get; set; }
     public float Speed { get; set; } = 400f;
+    public string TowerName { get; set; } = "Tower";
 
     public override void _Ready()
     {
@@ -28,6 +30,7 @@ public partial class Projectile : Node2D
         if (toTarget.Length() <= step)
         {
             Target.TakeDamage(Damage);
+            DamageTracker.Report(TowerName, Damage);
             QueueFree();
             return;
         }
@@ -37,6 +40,6 @@ public partial class Projectile : Node2D
 
     public override void _Draw()
     {
-        DrawCircle(Vector2.Zero, 6f, Colors.Yellow);
+        DrawCircle(Vector2.Zero, 8f, Colors.Yellow);
     }
 }

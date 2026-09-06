@@ -5,6 +5,8 @@ namespace TowerDefense.Data;
 [GlobalClass]
 public partial class TowerData : Resource
 {
+    [Export] public string DisplayName { get; set; } = "Tower";
+
     [Export] public float Damage { get; set; } = 1f;
 
     // Shots per second.
