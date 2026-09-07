@@ -482,7 +482,11 @@ public partial class LevelBuild : Node2D
 
     private void OnGoalEntered(Area2D area)
     {
-        if (area is Enemy enemy)
+        // Ha egy torony pont abban a frame-ben öli meg az ellenséget, amikor
+        // az a célba ér (a QueueFree() csak a frame végén törli a node-ot),
+        // ez a signal még lefuthatna egy már halott ellenségre — dupla
+        // kör-teljesítést és jogtalan HP-levonást okozva.
+        if (area is Enemy enemy && !enemy.IsDead)
         {
             // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba
             // költözik, amikor a teljes statisztika/skill fa kör megépül.

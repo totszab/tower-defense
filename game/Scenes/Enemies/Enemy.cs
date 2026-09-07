@@ -15,7 +15,10 @@ public partial class Enemy : Area2D
 
     [Export] public EnemyData Data { get; set; }
 
+    public bool IsDead => _dead;
+
     private float _currentHp;
+    private bool _dead;
 
     public override void _Ready()
     {
@@ -54,11 +57,19 @@ public partial class Enemy : Area2D
 
     public void TakeDamage(float amount)
     {
+        // Ha két lövedék ugyanabban a frame-ben csapódik be (túllövés egy
+        // alacsony HP-jú ellenségen), a QueueFree() csak a frame VÉGÉN törli
+        // a node-ot — enélkül a védelem nélkül a második becsapódás még
+        // egyszer lefuttatná a halál-logikát, duplán számolva az aranyat és
+        // a kör-teljesítést, ami korai "Success!"-t okozhat.
+        if (_dead) return;
+
         _currentHp -= amount;
         QueueRedraw();
 
         if (_currentHp <= 0f)
         {
+            _dead = true;
             EmitSignal(SignalName.Died);
             QueueFree();
         }
