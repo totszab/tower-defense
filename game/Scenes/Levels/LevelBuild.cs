@@ -33,14 +33,14 @@ public partial class LevelBuild : Node2D
     // teljesítése nyitja meg az N+1.-et (lásd EndRound).
     private static readonly string[] LevelOrder = { "Level1", "Level2", "Level3" };
 
-    // Melyik torony milyen pálya feloldásakor válik elérhetővé — globálisan,
-    // minden pályán (nem csak azon, ahol debütált). Kézzel karbantartott lista,
-    // akárcsak MainMenu.CodexEnemyPaths.
-    private static readonly (string ScenePath, string UnlockLevelId)[] TowerUnlocks =
+    // Melyik torony melyik skill fa node megvásárlásakor válik elérhetővé —
+    // globálisan, minden pályán, nem a pálya-progressztől függ. `null` = mindig
+    // elérhető. Kézzel karbantartott lista, akárcsak MainMenu.CodexEnemyPaths.
+    private static readonly (string ScenePath, string RequiredSkillNodeId)[] TowerUnlocks =
     {
-        ("res://Scenes/Towers/Tower.tscn", "Level1"),
-        ("res://Scenes/Towers/SplashTower.tscn", "Level2"),
-        ("res://Scenes/Towers/SniperTower.tscn", "Level3"),
+        ("res://Scenes/Towers/Tower.tscn", null),
+        ("res://Scenes/Towers/SplashTower.tscn", "unlockSplash"),
+        ("res://Scenes/Towers/SniperTower.tscn", "unlockSniper"),
     };
 
     // Bootstrap value only — real per-level numbers belong in a Resource
@@ -55,6 +55,19 @@ public partial class LevelBuild : Node2D
         "Level3" => "Level 3",
         _ => levelId,
     };
+
+    // Pályánként más grass/path csempeszín + háttér-shader szín, hogy a
+    // pályák vizuálisan is megkülönböztethetők legyenek (nem csak az
+    // ellenség-paletta). Level1 = erdő (zöld/barna), Level2 = sivatag/láva
+    // (homok/vörösesbarna), Level3 = idegen/kozmikus (lila/cián).
+    private static (Color Grass, Color Path, Color BgA, Color BgB) ThemeFor(string levelId) => levelId switch
+    {
+        "Level2" => (new Color(0.75f, 0.6f, 0.35f), new Color(0.35f, 0.22f, 0.18f), new Color(0.14f, 0.07f, 0.03f), new Color(0.22f, 0.12f, 0.05f)),
+        "Level3" => (new Color(0.32f, 0.22f, 0.5f), new Color(0.15f, 0.28f, 0.32f), new Color(0.04f, 0.03f, 0.12f), new Color(0.08f, 0.06f, 0.22f)),
+        _ => (new Color(0.35f, 0.6f, 0.35f), new Color(0.62f, 0.49f, 0.31f), new Color(0.05f, 0.1f, 0.08f), new Color(0.1f, 0.16f, 0.13f)),
+    };
+
+    private (Color Grass, Color Path, Color BgA, Color BgB) _theme;
 
     private readonly List<PackedScene> _availableTowers = new();
     [Export] public PackedScene EnemyScene { get; set; }
@@ -151,9 +164,22 @@ public partial class LevelBuild : Node2D
 
         _progress = new LocalFileSaveProvider().Load();
         _levelId = RequestedLevelId;
-        foreach (var (scenePath, unlockLevelId) in TowerUnlocks)
+        _theme = ThemeFor(_levelId);
+
+        // A ShaderMaterial a .tscn-ből sub_resource-ként jön — mielőtt a
+        // shader paramétereit módosítjuk, duplikálni kell (ugyanaz az elv,
+        // mint az Enemy CollisionShape2D-jénél), különben egy korábbi
+        // ChangeSceneToFile-lal újratöltött pálya öröklné az előző pálya
+        // (esetleg cache-elt) módosított színeit.
+        var background = GetNode<ColorRect>("BackgroundLayer/Background");
+        var backgroundMaterial = (ShaderMaterial)background.Material.Duplicate();
+        backgroundMaterial.SetShaderParameter("color_a", _theme.BgA);
+        backgroundMaterial.SetShaderParameter("color_b", _theme.BgB);
+        background.Material = backgroundMaterial;
+
+        foreach (var (scenePath, requiredSkillNodeId) in TowerUnlocks)
         {
-            if (_progress.IsLevelUnlocked(unlockLevelId))
+            if (requiredSkillNodeId == null || _progress.GetSkillLevel(requiredSkillNodeId) >= 1)
             {
                 _availableTowers.Add(GD.Load<PackedScene>(scenePath));
             }
@@ -671,9 +697,7 @@ public partial class LevelBuild : Node2D
         {
             for (var y = 0; y < 3; y++)
             {
-                var color = y == PathRow
-                    ? new Color(0.62f, 0.49f, 0.31f)
-                    : new Color(0.35f, 0.6f, 0.35f);
+                var color = y == PathRow ? _theme.Path : _theme.Grass;
                 var rect = new Rect2(
                     x * GridConstants.TileSize,
                     y * GridConstants.TileSize,

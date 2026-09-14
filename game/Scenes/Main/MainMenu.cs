@@ -7,8 +7,10 @@ using TowerDefense.UI;
 
 namespace TowerDefense.MainMenu;
 
-// Bootstrap skill fa: 5 node (hub + 4 irány), lásd GAMEPLAY.md "Skill fa".
-// Node id -> irány: towers=hub, hp=fel, fireRate=le, currency=jobb, dmg=bal.
+// Bootstrap skill fa: hub + 4 irány (0-5 szintes upgrade node-ok) + 2 diagonális
+// egyszeri torony-unlock node, lásd GAMEPLAY.md "Skill fa".
+// Node id -> irány: towers=hub, hp=fel, fireRate=le, currency=jobb, dmg=bal,
+// unlockSplash=jobb-fent, unlockSniper=jobb-lent.
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
@@ -38,6 +40,11 @@ public partial class MainMenu : Node2D
     // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
     // sebzés/élet görbét használjuk placeholderként.
     private static readonly int[] FireRateCosts = DmgHpCosts;
+
+    // Egyszeri (1 szintes, nem 0-5) unlock node-ok — a torony TÍPUSOK a skill
+    // fából nyílnak, nem a pálya-progressztől függenek (lásd LevelBuild.TowerUnlocks).
+    private static readonly int[] UnlockSplashCosts = { 150 };
+    private static readonly int[] UnlockSniperCosts = { 400 };
 
     // Kézzel karbantartott lista — nincs központi "minden ellenség" registry,
     // amikor új ellenségtípus készül, ide is fel kell venni.
@@ -72,6 +79,8 @@ public partial class MainMenu : Node2D
         ["fireRate"] = new Vector2(640, 480),
         ["currency"] = new Vector2(820, 340),
         ["dmg"] = new Vector2(460, 340),
+        ["unlockSplash"] = new Vector2(790, 220),
+        ["unlockSniper"] = new Vector2(790, 460),
     };
 
     // Tooltip (hover) szöveg: az egy szintnyi (marginális) hatás, angolul.
@@ -82,6 +91,8 @@ public partial class MainMenu : Node2D
         ["currency"] = "+10% gold",
         ["dmg"] = "+1 damage",
         ["fireRate"] = "+5% attack speed",
+        ["unlockSplash"] = "Unlocks the Splash Tower (area damage)",
+        ["unlockSniper"] = "Unlocks the Sniper Tower (long range, high damage)",
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -212,7 +223,17 @@ public partial class MainMenu : Node2D
         "dmg" or "hp" => DmgHpCosts,
         "towers" => TowerCosts,
         "fireRate" => FireRateCosts,
+        "unlockSplash" => UnlockSplashCosts,
+        "unlockSniper" => UnlockSniperCosts,
         _ => CurrencyCosts,
+    };
+
+    // A legtöbb node 0-5 szintes, de az egyszeri torony-unlockok csak 0 vagy 1
+    // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök).
+    private static int MaxLevelFor(string nodeId) => nodeId switch
+    {
+        "unlockSplash" or "unlockSniper" => 1,
+        _ => MaxLevel,
     };
 
     // A node kompakt (hover nélküli) szövege: a JELENLEGI kumulált hatás + szint.
@@ -223,13 +244,14 @@ public partial class MainMenu : Node2D
         "currency" => $"+{level * 10}% gold",
         "dmg" => $"+{level} damage",
         "fireRate" => $"+{level * 5}% attack speed",
+        "unlockSplash" or "unlockSniper" => level >= 1 ? "Unlocked" : "Locked",
         _ => "",
     };
 
     private void OnNodePressed(string nodeId)
     {
         var level = _progress.GetSkillLevel(nodeId);
-        if (level >= MaxLevel) return;
+        if (level >= MaxLevelFor(nodeId)) return;
 
         var cost = CostsFor(nodeId)[level];
         if (_progress.MetaCurrency < cost) return;
@@ -255,10 +277,11 @@ public partial class MainMenu : Node2D
             var button = entry.Value;
             var level = _progress.GetSkillLevel(nodeId);
             var costs = CostsFor(nodeId);
+            var maxLevel = MaxLevelFor(nodeId);
 
-            button.Text = $"{CumulativeText(nodeId, level)}\n{level}/{MaxLevel}";
-            button.TooltipText = level >= MaxLevel
-                ? $"{NodePerLevelText[nodeId]}\nMAX LEVEL"
+            button.Text = $"{CumulativeText(nodeId, level)}\n{level}/{maxLevel}";
+            button.TooltipText = level >= maxLevel
+                ? $"{NodePerLevelText[nodeId]}\n{(maxLevel == 1 ? "Unlocked" : "MAX LEVEL")}"
                 : $"{NodePerLevelText[nodeId]}\nCost: {costs[level]} gold";
         }
     }

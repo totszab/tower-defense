@@ -65,29 +65,31 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 ## Skill fa
 
-**Vegyes fa**: egy központi hub node + 4 irányba induló ág, mindegyik vonallal összekötve a hub-bal (vizuálisan is). Minden node 0-5 szintig fejleszthető, minden szintlépésnek ára van (meta-arany). **A node feliratok angolul jelennek meg a UI-ban** (Tower Number, Health, Attack Speed, Gold, Damage), a dokumentáció itt magyarul hivatkozik rájuk.
+**Vegyes fa**: egy központi hub node + 4 kardinális irányba induló upgrade-ág (0-5 szintig fejleszthető, minden szintlépésnek ára van), plusz 2 diagonális **egyszeri unlock** node (0 vagy 1 szint — torony TÍPUST nyitnak, nem statot). Mindegyik vonallal összekötve a hub-bal (vizuálisan is). **A node feliratok angolul jelennek meg a UI-ban**, a dokumentáció itt magyarul hivatkozik rájuk.
 
-| Node (UI felirat) | id | Irány | Hatás / szint | Ár (1→2, 2→3, 3→4, 4→5) |
+| Node (UI felirat) | id | Irány | Hatás / szint | Ár |
 |---|---|---|---|---|
-| Tower Number | `towers` | Hub (közép) | Overall torony-slot szám; **1. szinten indul alapból** (baseline) | 100 / 250 / 500 / 750 |
+| Tower Number | `towers` | Hub (közép) | Overall torony-slot szám; **1. szinten indul alapból** (baseline) | 100 / 250 / 500 / 750 (1→5) |
 | Health | `hp` | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
-| Attack Speed | `fireRate` | Le | Az (egyelőre egyetlen) toronytípus tűzgyorsasága +5%/szint. Ez az ág a torony-specifikus upgrade-ek kezdete — később minden toronytípusnak lehet saját ilyen ága. | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
+| Attack Speed | `fireRate` | Le | MINDEN torony tűzgyorsasága +5%/szint (globális, nem torony-specifikus — lásd lent) | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
 | Gold | `currency` | Jobb | +10% szerzett arany minden megölt ellenségért (szorzó, nem fix bónusz) | 50 / 150 / 300 / 500 / 1000 |
 | Damage | `dmg` | Bal | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
+| Splash Tower | `unlockSplash` | Jobb-fent (diagonál) | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") — 0/1 szint, nincs upgrade | 150 |
+| Sniper Tower | `unlockSniper` | Jobb-lent (diagonál) | Egyszeri: feloldja a Sniper Tower típust | 400 |
 
 **Baseline megoldva**: a `towers` node alapból (friss mentésnél is) legalább 1. szinten van, tehát mindig lerakható az első torony — a korábbi verzióban felmerült "friss játékos beszorul" probléma ezzel elhárult. Az árlista emiatt csak 4 lépést tartalmaz (1→5), nincs "0→1" ár.
 
-**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL" (pl. `+1 damage / Cost: 50 gold`).
+**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál) (pl. `+1 damage / Cost: 50 gold`). Az egyszeri unlock node-ok `MainMenu.MaxLevelFor()` szerint 1-nél maxolnak ki, nem 5-nél — a `towers`/`hp`/`currency`/`dmg`/`fireRate` node-októl eltérően.
 
-**Eszköz/képesség ág**: egyelőre nincs a fenti 5 node között. A `fireRate` node jelzi az irányt (torony-specifikus ág), de a teljes "eszköz/képesség" kategória (GAMEPLAY.md korábbi tervei) még nyitott.
+**Eszköz/képesség ág**: egyelőre nincs a fenti node-ok között — a globális `fireRate` node NEM torony-specifikus, minden toronyra egyformán hat (3 torony típus is ugyanazt a globális multiplikátort kapja). Egy valódi torony-specifikus upgrade-rendszer még TBD.
 
 **Fontos, rögzített elv**: a globális stat ág (élet, sebzés, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra.
 
 **Induló állapot (Fázis 2 bootstrap, "üres" skill fa)**: a játékos 0 meta-arannyal indul, semmi nincs megvásárolva a fán. A skill fától **függetlenül**, alapból (baseline, nem unlock-kötött) rendelkezésre áll:
-- 1 torony típus (Rocket Tower, lásd lent) — a másik 2 pálya-feloldáshoz kötött (lásd "Torony-feloldás")
+- 1 torony típus (Rocket Tower, lásd lent) — a másik 2 skill fa vásárláshoz kötött (lásd "Torony-feloldás")
 - 1 torony slot (egyszerre 1 lerakott torony engedélyezett)
 
-A skill fa node-jai *ezen a baseline-on felül* adnak további torony **slot**-okat és damage/fire rate szintet — tehát a fa nem "0-ról épít fel mindent", hanem a minimális játszható állapotot bővíti. A torony **típusok** (lásd lent) nem a skill fától, hanem a pálya-progressztől függenek.
+A skill fa node-jai *ezen a baseline-on felül* adnak további torony **slot**-okat, damage/fire rate szintet, ÉS torony **típusokat** (lásd "Torony-feloldás") — tehát a fa nem "0-ról épít fel mindent", hanem a minimális játszható állapotot bővíti.
 
 ## Tornyok
 
@@ -99,9 +101,9 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 | Splash Tower | Terület sebzés — a becsapódási pont körül MINDEN ellenséget sebez, jó áradatok ellen | 1 | 0,7/mp | 2,5 tile | 1,5 tile | Level 2 elérésekor |
 | Sniper Tower | Nagy sebzés, lassú tűzgyorsaság, hosszú lőtáv — jó bossok ellen | 4 | 0,4/mp | 5 tile | — | Level 3 elérésekor |
 
-**Torony-feloldás**: a torony típusok **globálisan, minden pályán** elérhetők, amint a hozzájuk tartozó pálya feloldódik (nem csak azon, ahol debütáltak) — pl. a Splash Tower Level 2 elérésekor Level 1-en is használható lesz. `LevelBuild.TowerUnlocks` (kód) és `MainMenu.LevelIds`/`LevelOrder` tükrözi ugyanezt a sorrendet.
+**Torony-feloldás**: a torony TÍPUSOK a **skill fából nyílnak** (`unlockSplash`/`unlockSniper` node, lásd "Skill fa"), nem a pálya-progressztől függenek — egy Splash Tower akár Level 1-en is megvehető/használható, ha van rá arany, nem kell előbb Level 2-t elérni. Egyszer megvéve **globálisan, minden pályán** elérhető marad. `LevelBuild.TowerUnlocks` (kód, `(ScenePath, RequiredSkillNodeId)` párok) tükrözi ezt.
 
-**Placeholder-tier vizuál**: nincs egyedi art egyik új toronyhoz sem — ugyanazt a `tower_basic.png` sprite-ot **színezzük** (`Sprite2D.Modulate`, közvetlenül a `.tscn`-ben, nem `TowerData`-mezőként) a palettán és a pályán is, hogy megkülönböztethetők legyenek anélkül, hogy új assetre várnánk (ugyanaz az elv, mint az ellenségeknél lent).
+**Vizuál**: mindhárom toronynak saját sprite-ja van (Kenney Tower Defense Top-Down pack, `Assets/Sprites/{tower_basic,splash_tower,sniper_tower}.png` — más-más tile ugyanabból a csomagból, nem csak színezett verzió), a Sniper Tower emellett kék-szürke tinttel (`Sprite2D.Modulate`, közvetlenül a `.tscn`-ben) is el van tolva a Rocket Tower vöröses árnyalatától, hogy a torony-paletta gombjain és a pályán is egyértelműen megkülönböztethetők legyenek.
 
 ## Ellenségek
 
@@ -142,6 +144,8 @@ Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 ## Pályák és körök
 
 **Egy pálya = 10 kör.** Jelenleg 3 pálya létezik (Level 1, 2, 3), mindegyik ugyanazt a `Level01Test.tscn` scene-t tölti be újra — a scene és a `LevelBuild.cs` kód pálya-agnosztikus, csak a `LevelBuild.RequestedLevelId` (`"Level1"`/`"Level2"`/`"Level3"`) alapján tölti be a megfelelő `Data/Waves/<LevelId>/RoundN.tres` fájlt.
+
+**Vizuális téma pályánként**: a grass/path csempeszín és a háttér-shader színe pályánként eltér (`LevelBuild.ThemeFor`) — Level 1 erdő (zöld fű, barna földút), Level 2 sivatag/láva (homok, vörösesbarna út), Level 3 idegen/kozmikus (lila talaj, sötét cián út) — hogy a pályák ránézésre is megkülönböztethetők legyenek, nem csak az ellenség-színek alapján. **A pálya ALAKJA (egyenes sáv, nincsenek kanyarok) és az építhető csempék száma egyelőre MINDEN pályán azonos** — ezek nagyobb, az ellenség-mozgatás architektúráját (jelenleg `Position += Vector2.Right * Speed`, nincs waypoint-rendszer) és a már kiszámolt nehézségi görbét is érintő változtatások lennének, ezért külön tervezési kör kell hozzájuk, mielőtt belevágunk (lásd "Következő lépés").
 
 - Minden pályának **10 köre** van, lineáris feloldási sorrenddel — egy kör sikeres teljesítése (győzelem, nem vereség/visszavonulás) feloldja a pálya következő körét
 - **Az 5. és a 10. kör végén boss van**: az 5. kör végén egy **mini boss**, a 10. kör végén egy **final boss** zárja a hullámot
@@ -239,4 +243,9 @@ Ez a rendszer **felváltja**, nem kiegészíti a korábbi "difficulty curve" ter
 
 ## Következő lépés
 
-A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell, több pálya) le van fektetve, mindhárom pálya (30 kör) kész tartalommal, 3 torony típussal (lásd "Pályák és körök", "Ellenségek", "Tornyok" fent). Következő kör: a nehézségi görbe éles teszttel való finomhangolása (főleg Level 2/3, ahol a "hány tornyot kell csoportosítani" feltevés még nincs élesben tesztelve), és hosszabb távon egy negyedik, lassítás/kontroll szerepkörű torony típus.
+A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell, több pálya, torony-választék) le van fektetve, mindhárom pálya (30 kör) kész tartalommal, 3 torony típussal (lásd "Pályák és körök", "Ellenségek", "Tornyok", "Skill fa" fent). Nyitott, tervezést igénylő tételek:
+- A nehézségi görbe éles teszttel való finomhangolása (főleg Level 2/3, ahol a "hány tornyot kell csoportosítani" feltevés még nincs élesben tesztelve)
+- **Pálya-forma (kanyarok)**: waypoint-alapú útvonal az ellenség-mozgáshoz a jelenlegi egyenes sáv helyett — ez újraszámolja a torony lőtáv-lefedettséget (jelenleg az 5,657 tile-os "ablak" számítás egyenes útra épül), tehát a meglévő HP/DPS görbét is érintheti
+- **Kevesebb építhető csempe** későbbi pályákon — óvatosan kell bevezetni, mert a Level 2/3 nehézségi modell kifejezetten arra épít, hogy a játékos több tornyot tud egymás mellé csoportosítani (lásd "Pálya-közti skálázás")
+- **Több belépési pont** (ellenfelek két irányból) — hosszabb távú ötlet, a fentinél is nagyobb átalakítás (több GoalArea, több spawn-pont)
+- Egy negyedik, lassítás/kontroll szerepkörű torony típus

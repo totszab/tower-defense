@@ -34,10 +34,11 @@ Cél: a **teljes** navigációs kör végigjátszható — build fázis → hull
 
 ## Fázis 3 — Tartalombővítés (folyamatban)
 
-- [x] 3 torony típus a GAMEPLAY.md szerint (Rocket/Splash/Sniper — a negyedik, lassítás/kontroll szerepkörű még TBD)
+- [x] 3 torony típus a GAMEPLAY.md szerint (Rocket/Splash/Sniper, saját sprite mindegyiknek — a negyedik, lassítás/kontroll szerepkörű még TBD), skill fa node-dal (`unlockSplash`/`unlockSniper`) feloldva, nem pálya-progresszhez kötve
 - [x] Level 1, mind a 10 köre kész tartalommal (Green → Blue → Purple Slime, mini boss az 5., final boss a 10. körben), lásd GAMEPLAY.md "Pályák és körök" és "Ellenségek" (a HP-görbe indoklásával)
 - [x] Kör-választó UI a Főmenüben (Play gomb → popup, pálya-fülek + mind a 10 kör pályánként, feloldottság szerint)
-- [x] 2. és 3. pálya (Level 2: Red → Orange Slime, Level 3: Cyan → Magenta Slime, mindkettő 10-10 kész körrel) — a pályák lineárisan oldódnak fel, akárcsak a körök
+- [x] 2. és 3. pálya (Level 2: Red → Orange Slime, Level 3: Cyan → Magenta Slime, mindkettő 10-10 kész körrel), saját vizuális témával (grass/path szín, háttér-shader) — a pályák lineárisan oldódnak fel, akárcsak a körök
+- [ ] Pálya-forma variáció (kanyarok, waypoint-alapú útvonal a jelenlegi egyenes sáv helyett), esetleg kevesebb építhető csempe / több belépési pont későbbi pályákon — lásd GAMEPLAY.md "Következő lépés" a kockázatokért (érinti a torony lőtáv-számítást és a nehézségi görbét)
 
 ## Fázis 4 — UI/UX és mentés
 
