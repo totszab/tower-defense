@@ -125,17 +125,19 @@ public partial class MainMenu : Node2D
         "res://Data/Enemies/magenta_slime_boss.tres",
     };
 
-    // Melyik (ág, réteg) generált node kap valódi id-t — csak L1/L2/L3-on van
-    // pontosan 1 node ágankánt (L4+ már 2-vel elágazik), ott fér el egyértelműen
-    // a 6 meglévő stat. A többi generált node placeholder marad (Id = null).
-    private static readonly Dictionary<(SkillBranch, int), string> SkillRealNodeIds = new()
+    // Melyik (ág, réteg, "oldal") generált node kap valódi id-t. L1-en csak 1
+    // node van ágankánt (a "Spin" mező ilyenkor irreleváns, 0-t kap). L2-től
+    // már 2 node van egy szülőnél (lásd BuildSkillBranch) — ezért a Spin
+    // (+1/-1) különbözteti meg, MELYIK oldali node-ról van szó, hogy a
+    // dictionary egyértelműen egyetlen node-ra mutasson, ne kettőre.
+    private static readonly Dictionary<(SkillBranch Branch, int Layer, int Spin), string> SkillRealNodeIds = new()
     {
-        [(SkillBranch.Damage, 1)] = "dmg",
-        [(SkillBranch.Damage, 2)] = "fireRate",
-        [(SkillBranch.Defense, 1)] = "hp",
-        [(SkillBranch.Gold, 1)] = "currency",
-        [(SkillBranch.Towers, 2)] = "unlockSplash",
-        [(SkillBranch.Towers, 3)] = "unlockSniper",
+        [(SkillBranch.Damage, 1, 0)] = "dmg",
+        [(SkillBranch.Damage, 2, 1)] = "fireRate",
+        [(SkillBranch.Defense, 1, 0)] = "hp",
+        [(SkillBranch.Gold, 1, 0)] = "currency",
+        [(SkillBranch.Towers, 2, 1)] = "unlockSplash",
+        [(SkillBranch.Towers, 3, 1)] = "unlockSniper",
     };
 
     private readonly List<(string Id, Vector2 Pos, SkillBranch Branch)> _skillNodes = new();
@@ -230,12 +232,11 @@ public partial class MainMenu : Node2D
         RefreshUi();
     }
 
-    // A hub-ból 4 fő ág indul (Damage/Defense/Gold/Towers), mindegyik 6 rétegen
-    // át — a pontos elágazási minta (mikor kanyarodik, mikor ágazik ketté) a
-    // felhasználónak korábban bemutatott vizuális makett algoritmusát követi
-    // 1:1-ben (lásd a session jegyzeteit): L1→L2 egyenes folytatás, utána a
-    // PÁRATLAN rétegek (3, 5) 90°-ot fordulnak (egyetlen gyerek), a PÁROS
-    // rétegek (4, 6) ±45°-ban kettéágaznak.
+    // A hub-ból 4 fő ág indul (Damage/Defense/Gold/Towers) — ez az 1. réteg,
+    // a hub-hoz KÖZVETLENÜL kapcsolódó 4 node. Utána a felhasználó által
+    // megadott minta ismétlődik 6 rétegen át: PÁROS réteg (2, 4, 6) — a
+    // szülőből KETTÉ ágazik (±SkillTreeAngleStep fok); PÁRATLAN réteg (3, 5)
+    // — egyenesen tovább, csak 1 gyerek (kicsit "kanyarodva").
     private void BuildSkillTreeLayout()
     {
         _skillNodes.Clear();
@@ -245,9 +246,11 @@ public partial class MainMenu : Node2D
         {
             var layer1Pos = SkillHubPosition + dir * SkillSegment;
             _skillEdges.Add((SkillHubPosition, layer1Pos, branch));
-            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1)), layer1Pos, branch));
+            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1, 0)), layer1Pos, branch));
 
-            BuildSkillBranch(layer1Pos, dir, 2, 1, branch);
+            // A kezdő spin értéke lényegtelen: a 2. réteg PÁROS, tehát úgyis
+            // kettéágazik, a bejövő spin-t figyelmen kívül hagyja.
+            BuildSkillBranch(layer1Pos, dir, 2, 0, branch);
         }
     }
 
@@ -255,22 +258,28 @@ public partial class MainMenu : Node2D
     {
         if (layer > 6) return;
 
-        var pos = parentPos + dir * SkillSegment;
-        _skillEdges.Add((parentPos, pos, branch));
-        _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer)), pos, branch));
-
-        if (layer % 2 == 1)
+        if (layer % 2 == 0)
         {
-            // Páratlan réteg: egyenesen tovább, kicsit "kanyarodva" — de csak
-            // SkillTreeAngleStep fokot, sosem a szomszéd ág felé.
-            var turned = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * spin));
-            BuildSkillBranch(pos, turned, layer + 1, spin, branch);
+            // Páros réteg: a szülőből KETTÉ ágazik — ez a réteg maga adja a
+            // 2 node-ot (nem a rákövetkező), ±SkillTreeAngleStep fokban.
+            foreach (var sign in new[] { 1, -1 })
+            {
+                var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * sign));
+                var pos = parentPos + d * SkillSegment;
+                _skillEdges.Add((parentPos, pos, branch));
+                _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, sign)), pos, branch));
+                BuildSkillBranch(pos, d, layer + 1, sign, branch);
+            }
         }
         else
         {
-            // Páros réteg: kettéágazik, ±SkillTreeAngleStep fokban.
-            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep)), layer + 1, 1, branch);
-            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(-SkillTreeAngleStep)), layer + 1, -1, branch);
+            // Páratlan réteg: egyenesen tovább, kicsit "kanyarodva" — a
+            // szülőtől örökölt spin-nel (nem hoz létre új elágazást).
+            var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * spin));
+            var pos = parentPos + d * SkillSegment;
+            _skillEdges.Add((parentPos, pos, branch));
+            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, spin)), pos, branch));
+            BuildSkillBranch(pos, d, layer + 1, spin, branch);
         }
     }
 
