@@ -7,14 +7,45 @@ using TowerDefense.UI;
 
 namespace TowerDefense.MainMenu;
 
-// Bootstrap skill fa: hub + 4 irány (0-5 szintes upgrade node-ok) + 2 diagonális
-// egyszeri torony-unlock node, lásd GAMEPLAY.md "Skill fa".
-// Node id -> irány: towers=hub, hp=fel, fireRate=le, currency=jobb, dmg=bal,
-// unlockSplash=jobb-fent, unlockSniper=jobb-lent.
+// Skill fa v2: hub + 4 fő ág (balra=Damage, fel=Defense, jobbra=Gold,
+// le=Towers/Special), mindegyik 6 rétegen át elágazva (lásd BuildSkillTreeLayout).
+// A legtöbb generált node egyelőre PLACEHOLDER (nincs tartalma, csak a forma
+// látszik) — csak 6 node valódi/vásárolható, ugyanaz a 6 stat, ami korábban
+// is megvolt, csak új pozícióban: dmg (Damage/L1), fireRate (Damage/L2),
+// hp (Defense/L1), currency (Gold/L1), unlockSplash (Towers/L2), unlockSniper
+// (Towers/L3). A csoportonkénti tartalom-feltöltés (mi legyen a többi node,
+// milyen áron) külön kör, lásd GAMEPLAY.md "Skill fa".
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
-    private const float NodeDiameter = 110f;
+    private const int MaxTowersLevel = 10;
+    private const float NodeDiameter = 90f;
+    private const float RealNodeDiameter = 72f;
+    private const float PlaceholderNodeDiameter = 20f;
+    private const float SkillSegment = 58f;
+    private static readonly Vector2 SkillHubPosition = new(640, 340);
+
+    private enum SkillBranch { Damage, Defense, Gold, Towers }
+
+    private static readonly (SkillBranch Branch, Vector2 Dir)[] SkillBranchDirs =
+    {
+        (SkillBranch.Damage, new Vector2(-1, 0)),
+        (SkillBranch.Defense, new Vector2(0, -1)),
+        (SkillBranch.Gold, new Vector2(1, 0)),
+        (SkillBranch.Towers, new Vector2(0, 1)),
+    };
+
+    // Fill/border pár minden ághoz — a placeholder node-ok ugyanezt a színt
+    // kapják, csak elhalványítva (lásd BuildSkillNodes), hogy már üresen is
+    // látszódjon, melyik ághoz tartoznak.
+    private static readonly Dictionary<SkillBranch, (Color Fill, Color Border)> SkillBranchColors = new()
+    {
+        [SkillBranch.Damage] = (new Color(0.32f, 0.14f, 0.10f), new Color(0.85f, 0.40f, 0.25f)),
+        [SkillBranch.Defense] = (new Color(0.10f, 0.16f, 0.32f), new Color(0.35f, 0.55f, 0.95f)),
+        [SkillBranch.Gold] = (new Color(0.30f, 0.22f, 0.08f), new Color(0.85f, 0.65f, 0.25f)),
+        [SkillBranch.Towers] = (new Color(0.20f, 0.14f, 0.32f), new Color(0.60f, 0.45f, 0.90f)),
+    };
+    private static readonly (Color Fill, Color Border) SkillHubColor = (new Color(0.16f, 0.16f, 0.18f), new Color(0.55f, 0.55f, 0.60f));
 
     // Minden pálya mind a 10 körének van tartalma (lásd GAMEPLAY.md "Pályák").
     // (LevelBuild.MaxPlayableRound ugyanezt a tényt tükrözi, szándékosan duplikált.)
@@ -34,8 +65,10 @@ public partial class MainMenu : Node2D
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
 
     // Index 0 sosem kerül lekérdezésre — a "towers" mindig >=1 szinten van
-    // (PlayerProgress.GetSkillLevel baseline). 1->2, 2->3, 3->4, 4->5 árak.
-    private static readonly int[] TowerCosts = { 0, 100, 250, 500, 750 };
+    // (PlayerProgress.GetSkillLevel baseline). 1->2, ..., 9->10 árak.
+    // TBD, placeholder: a max szint 5->10 emelése (lásd MaxTowersLevel) friss,
+    // a 6-10. szint ára még nincs véglegesítve — csoportonként nézzük át.
+    private static readonly int[] TowerCosts = { 0, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 4000 };
 
     // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
     // sebzés/élet görbét használjuk placeholderként.
@@ -72,16 +105,21 @@ public partial class MainMenu : Node2D
         "res://Data/Enemies/magenta_slime_boss.tres",
     };
 
-    private static readonly Dictionary<string, Vector2> NodePositions = new()
+    // Melyik (ág, réteg) generált node kap valódi id-t — csak L1/L2/L3-on van
+    // pontosan 1 node ágankánt (L4+ már 2-vel elágazik), ott fér el egyértelműen
+    // a 6 meglévő stat. A többi generált node placeholder marad (Id = null).
+    private static readonly Dictionary<(SkillBranch, int), string> SkillRealNodeIds = new()
     {
-        ["towers"] = new Vector2(640, 340),
-        ["hp"] = new Vector2(640, 200),
-        ["fireRate"] = new Vector2(640, 480),
-        ["currency"] = new Vector2(820, 340),
-        ["dmg"] = new Vector2(460, 340),
-        ["unlockSplash"] = new Vector2(790, 220),
-        ["unlockSniper"] = new Vector2(790, 460),
+        [(SkillBranch.Damage, 1)] = "dmg",
+        [(SkillBranch.Damage, 2)] = "fireRate",
+        [(SkillBranch.Defense, 1)] = "hp",
+        [(SkillBranch.Gold, 1)] = "currency",
+        [(SkillBranch.Towers, 2)] = "unlockSplash",
+        [(SkillBranch.Towers, 3)] = "unlockSniper",
     };
+
+    private readonly List<(string Id, Vector2 Pos, SkillBranch Branch)> _skillNodes = new();
+    private readonly List<(Vector2 From, Vector2 To, SkillBranch Branch)> _skillEdges = new();
 
     // Tooltip (hover) szöveg: az egy szintnyi (marginális) hatás, angolul.
     private static readonly Dictionary<string, string> NodePerLevelText = new()
@@ -169,51 +207,157 @@ public partial class MainMenu : Node2D
         RefreshUi();
     }
 
-    private void BuildSkillNodes()
+    // A hub-ból 4 fő ág indul (Damage/Defense/Gold/Towers), mindegyik 6 rétegen
+    // át — a pontos elágazási minta (mikor kanyarodik, mikor ágazik ketté) a
+    // felhasználónak korábban bemutatott vizuális makett algoritmusát követi
+    // 1:1-ben (lásd a session jegyzeteit): L1→L2 egyenes folytatás, utána a
+    // PÁRATLAN rétegek (3, 5) 90°-ot fordulnak (egyetlen gyerek), a PÁROS
+    // rétegek (4, 6) ±45°-ban kettéágaznak.
+    private void BuildSkillTreeLayout()
     {
-        var normalStyle = MakeNodeStyle(new Color(0.10f, 0.16f, 0.32f), new Color(0.35f, 0.55f, 0.95f));
-        var hoverStyle = MakeNodeStyle(new Color(0.16f, 0.24f, 0.46f), new Color(0.5f, 0.7f, 1f));
-        var pressedStyle = MakeNodeStyle(new Color(0.08f, 0.13f, 0.26f), new Color(0.35f, 0.55f, 0.95f));
+        _skillNodes.Clear();
+        _skillEdges.Clear();
 
-        foreach (var entry in NodePositions)
+        foreach (var (branch, dir) in SkillBranchDirs)
         {
-            var nodeId = entry.Key;
-            var center = entry.Value;
+            var layer1Pos = SkillHubPosition + dir * SkillSegment;
+            _skillEdges.Add((SkillHubPosition, layer1Pos, branch));
+            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1)), layer1Pos, branch));
 
-            var button = new Button
-            {
-                Position = center - new Vector2(NodeDiameter, NodeDiameter) / 2f,
-                CustomMinimumSize = new Vector2(NodeDiameter, NodeDiameter),
-                Size = new Vector2(NodeDiameter, NodeDiameter),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                ClipText = true,
-            };
-            button.AddThemeStyleboxOverride("normal", normalStyle);
-            button.AddThemeStyleboxOverride("hover", hoverStyle);
-            button.AddThemeStyleboxOverride("pressed", pressedStyle);
-            button.AddThemeColorOverride("font_color", Colors.White);
-            button.AddThemeColorOverride("font_hover_color", Colors.White);
-            button.Pressed += () => OnNodePressed(nodeId);
-
-            _canvasLayer.AddChild(button);
-            _buttons[nodeId] = button;
+            BuildSkillBranch(layer1Pos, dir, 2, 1, branch);
         }
     }
 
-    private static StyleBoxFlat MakeNodeStyle(Color fill, Color border)
+    private void BuildSkillBranch(Vector2 parentPos, Vector2 dir, int layer, int spin, SkillBranch branch)
+    {
+        if (layer > 6) return;
+
+        var pos = parentPos + dir * SkillSegment;
+        _skillEdges.Add((parentPos, pos, branch));
+        _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer)), pos, branch));
+
+        if (layer % 2 == 1)
+        {
+            // Páratlan réteg: egyenesen tovább, 90°-ot fordulva (a "kanyar").
+            var turned = dir.Rotated(Mathf.DegToRad(90f * spin));
+            BuildSkillBranch(pos, turned, layer + 1, spin, branch);
+        }
+        else
+        {
+            // Páros réteg: kettéágazik, ±45°-ban.
+            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(45f)), layer + 1, 1, branch);
+            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(-45f)), layer + 1, -1, branch);
+        }
+    }
+
+    private void BuildSkillNodes()
+    {
+        BuildSkillTreeLayout();
+
+        var hubStyle = MakeNodeStyle(SkillHubColor.Fill, SkillHubColor.Border, NodeDiameter, 3);
+        BuildHubButton(hubStyle);
+
+        foreach (var (id, pos, branch) in _skillNodes)
+        {
+            var (fill, border) = SkillBranchColors[branch];
+
+            if (id != null)
+            {
+                BuildRealNodeButton(id, pos, fill, border);
+            }
+            else
+            {
+                BuildPlaceholderNode(pos, fill, border);
+            }
+        }
+    }
+
+    private void BuildHubButton(StyleBoxFlat style)
+    {
+        var button = new Button
+        {
+            Position = SkillHubPosition - new Vector2(NodeDiameter, NodeDiameter) / 2f,
+            CustomMinimumSize = new Vector2(NodeDiameter, NodeDiameter),
+            Size = new Vector2(NodeDiameter, NodeDiameter),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            ClipText = true,
+        };
+        button.AddThemeStyleboxOverride("normal", style);
+        button.AddThemeStyleboxOverride("hover", style);
+        button.AddThemeStyleboxOverride("pressed", style);
+        button.AddThemeColorOverride("font_color", Colors.White);
+        button.AddThemeColorOverride("font_hover_color", Colors.White);
+        button.AddThemeFontSizeOverride("font_size", 12);
+        button.Pressed += () => OnNodePressed("towers");
+
+        _canvasLayer.AddChild(button);
+        _buttons["towers"] = button;
+    }
+
+    private void BuildRealNodeButton(string nodeId, Vector2 pos, Color fill, Color border)
+    {
+        var normalStyle = MakeNodeStyle(fill, border, RealNodeDiameter, 3);
+        var hoverStyle = MakeNodeStyle(fill.Lightened(0.1f), border.Lightened(0.15f), RealNodeDiameter, 3);
+        var pressedStyle = MakeNodeStyle(fill.Darkened(0.1f), border, RealNodeDiameter, 3);
+
+        var button = new Button
+        {
+            Position = pos - new Vector2(RealNodeDiameter, RealNodeDiameter) / 2f,
+            CustomMinimumSize = new Vector2(RealNodeDiameter, RealNodeDiameter),
+            Size = new Vector2(RealNodeDiameter, RealNodeDiameter),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            ClipText = true,
+        };
+        button.AddThemeStyleboxOverride("normal", normalStyle);
+        button.AddThemeStyleboxOverride("hover", hoverStyle);
+        button.AddThemeStyleboxOverride("pressed", pressedStyle);
+        button.AddThemeColorOverride("font_color", Colors.White);
+        button.AddThemeColorOverride("font_hover_color", Colors.White);
+        button.AddThemeFontSizeOverride("font_size", 11);
+        button.Pressed += () => OnNodePressed(nodeId);
+
+        _canvasLayer.AddChild(button);
+        _buttons[nodeId] = button;
+    }
+
+    // Üres node — még nincs eldöntve, mi legyen rajta, csak a FORMÁT mutatja.
+    // Letiltott, a saját ága színében, elhalványítva (a felhasználó kérése:
+    // "minden node a saját nagy típusának megfelelő keretet és hátteret kapjon").
+    private void BuildPlaceholderNode(Vector2 pos, Color fill, Color border)
+    {
+        var dimStyle = MakeNodeStyle(
+            new Color(fill.R, fill.G, fill.B, 0.35f),
+            new Color(border.R, border.G, border.B, 0.5f),
+            PlaceholderNodeDiameter,
+            2);
+
+        var button = new Button
+        {
+            Position = pos - new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter) / 2f,
+            CustomMinimumSize = new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter),
+            Size = new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter),
+            Disabled = true,
+            TooltipText = "Coming soon",
+        };
+        button.AddThemeStyleboxOverride("disabled", dimStyle);
+
+        _canvasLayer.AddChild(button);
+    }
+
+    private static StyleBoxFlat MakeNodeStyle(Color fill, Color border, float diameter, int borderWidth)
     {
         var style = new StyleBoxFlat
         {
             BgColor = fill,
             BorderColor = border,
-            BorderWidthTop = 3,
-            BorderWidthBottom = 3,
-            BorderWidthLeft = 3,
-            BorderWidthRight = 3,
-            CornerRadiusTopLeft = (int)(NodeDiameter / 2f),
-            CornerRadiusTopRight = (int)(NodeDiameter / 2f),
-            CornerRadiusBottomLeft = (int)(NodeDiameter / 2f),
-            CornerRadiusBottomRight = (int)(NodeDiameter / 2f),
+            BorderWidthTop = borderWidth,
+            BorderWidthBottom = borderWidth,
+            BorderWidthLeft = borderWidth,
+            BorderWidthRight = borderWidth,
+            CornerRadiusTopLeft = (int)(diameter / 2f),
+            CornerRadiusTopRight = (int)(diameter / 2f),
+            CornerRadiusBottomLeft = (int)(diameter / 2f),
+            CornerRadiusBottomRight = (int)(diameter / 2f),
         };
         return style;
     }
@@ -233,6 +377,7 @@ public partial class MainMenu : Node2D
     private static int MaxLevelFor(string nodeId) => nodeId switch
     {
         "unlockSplash" or "unlockSniper" => 1,
+        "towers" => MaxTowersLevel,
         _ => MaxLevel,
     };
 
@@ -349,14 +494,11 @@ public partial class MainMenu : Node2D
 
     public override void _Draw()
     {
-        var hub = NodePositions["towers"];
-        foreach (var entry in NodePositions)
+        foreach (var (from, to, branch) in _skillEdges)
         {
-            if (entry.Key == "towers") continue;
-            var dir = (entry.Value - hub).Normalized();
-            var start = hub + dir * (NodeDiameter / 2f);
-            var end = entry.Value - dir * (NodeDiameter / 2f);
-            DrawLine(start, end, new Color(0.5f, 0.7f, 1f, 0.6f), 4f);
+            var (_, border) = SkillBranchColors[branch];
+            var dir = (to - from).Normalized();
+            DrawLine(from + dir * 4f, to - dir * 4f, new Color(border.R, border.G, border.B, 0.5f), 2f);
         }
     }
 }

@@ -65,25 +65,35 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 ## Skill fa
 
-**Vegyes fa**: egy központi hub node + 4 kardinális irányba induló upgrade-ág (0-5 szintig fejleszthető, minden szintlépésnek ára van), plusz 2 diagonális **egyszeri unlock** node (0 vagy 1 szint — torony TÍPUST nyitnak, nem statot). Mindegyik vonallal összekötve a hub-bal (vizuálisan is). **A node feliratok angolul jelennek meg a UI-ban**, a dokumentáció itt magyarul hivatkozik rájuk.
+**v2, 2026-09-14-től: 4 ágú, 6 rétegű fraktál-szerű fa.** A régi (v1) 5+2 node-os fa kifutott — egy éles mentés minden node-ot maxolt (5/5 mindenhol) miközben ~2400 elkölthetetlen arany állt nála, és emiatt Level 2 5. körét (mini boss) sem tudta legyőzni (nem volt hová fejlődnie tovább). A v2 struktúra ezt oldja: sokkal több node, a legtöbb egyelőre **placeholder** (nincs tartalma, csak a forma/hely van kijelölve), tartalommal ágcsoportonként töltjük fel egy külön körben.
 
-| Node (UI felirat) | id | Irány | Hatás / szint | Ár |
+**Alak**: központi hub (`towers`) + 4 fő ág, mindegyik 6 rétegen át elágazva:
+- **Balra = Damage** — összesített sebzést érintő statok
+- **Fel = Defense** — védelemmel kapcsolatos statok
+- **Jobbra = Gold** — aranyszerzést növelő statok
+- **Le = Towers / Special** — új torony típusok megszerzése, speciális torony-fejlesztések
+
+Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): réteg 1→2 egyenesen folytatódik; a **páratlan** rétegek (3, 5) 90°-ot fordulnak (1 gyerek — ez adja a "kanyart"); a **páros** rétegek (4, 6) ±45°-ban kettéágaznak. Ágenként 11 node (1+1+1+2+2+4), a hub-bal együtt összesen 45 node a pályán. Minden node a saját ágának megfelelő kerettel+háttérrel jelenik meg (`MainMenu.SkillBranchColors`) — a placeholder node-ok ugyanezt a színt kapják, csak elhalványítva, hogy üresen is látszódjon, melyik ághoz tartoznak.
+
+**Jelenleg 6 node valódi/vásárolható** (a régi fa mind a 6 statja, csak új pozícióban — semmilyen funkció nem veszett el):
+
+| Node (UI felirat) | id | Pozíció (ág / réteg) | Hatás / szint | Ár |
 |---|---|---|---|---|
-| Tower Number | `towers` | Hub (közép) | Overall torony-slot szám; **1. szinten indul alapból** (baseline) | 100 / 250 / 500 / 750 (1→5) |
-| Health | `hp` | Fel | +2 kezdő élet | 5 / 10 / 20 / 35 / 50 |
-| Attack Speed | `fireRate` | Le | MINDEN torony tűzgyorsasága +5%/szint (globális, nem torony-specifikus — lásd lent) | 5 / 10 / 20 / 35 / 50 (**TBD, placeholder** — nincs végleges ár megadva) |
-| Gold | `currency` | Jobb | +10% szerzett arany minden megölt ellenségért (szorzó, nem fix bónusz) | 50 / 150 / 300 / 500 / 1000 |
-| Damage | `dmg` | Bal | +1 sebzés MINDEN toronynak, globálisan | 5 / 10 / 20 / 35 / 50 |
-| Splash Tower | `unlockSplash` | Jobb-fent (diagonál) | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") — 0/1 szint, nincs upgrade | 150 |
-| Sniper Tower | `unlockSniper` | Jobb-lent (diagonál) | Egyszeri: feloldja a Sniper Tower típust | 400 |
+| Tower Number | `towers` | Hub | Overall torony-slot szám; **1. szinten indul alapból**, most **10-ig** fejleszthető (volt: 5) | 100/250/500/750/1000/1500/2000/3000/4000 (1→10, **TBD placeholder a 6-10. szinten** — a 250-750 közti árakat tartottuk, utána nem véglegesített, exponenciális becslés) |
+| Damage | `dmg` | Damage / L1 | +1 sebzés MINDEN toronynak, globálisan | 5/10/20/35/50 |
+| Attack Speed | `fireRate` | Damage / L2 | MINDEN torony tűzgyorsasága +5%/szint (globális, nem torony-specifikus) | 5/10/20/35/50 (**TBD placeholder**) |
+| Health | `hp` | Defense / L1 | +2 kezdő élet | 5/10/20/35/50 |
+| Gold | `currency` | Gold / L1 | +10% szerzett arany (szorzó) | 50/150/300/500/1000 |
+| Splash Tower | `unlockSplash` | Towers / L2 | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
+| Sniper Tower | `unlockSniper` | Towers / L3 | Egyszeri: feloldja a Sniper Tower típust | 400 |
 
-**Baseline megoldva**: a `towers` node alapból (friss mentésnél is) legalább 1. szinten van, tehát mindig lerakható az első torony — a korábbi verzióban felmerült "friss játékos beszorul" probléma ezzel elhárult. Az árlista emiatt csak 4 lépést tartalmaz (1→5), nincs "0→1" ár.
+A maradék ~38 node **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve. Towers ág L1 node-ja is placeholder (nincs egyértelmű "egy stat" ötlet rá még).
 
-**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál) (pl. `+1 damage / Cost: 50 gold`). Az egyszeri unlock node-ok `MainMenu.MaxLevelFor()` szerint 1-nél maxolnak ki, nem 5-nél — a `towers`/`hp`/`currency`/`dmg`/`fireRate` node-októl eltérően.
+**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál). Az egyszeri unlock node-ok és a `towers` node `MainMenu.MaxLevelFor()` szerint saját maximumon maxolnak ki (1, illetve 10) — a többi node 5-nél.
 
-**Eszköz/képesség ág**: egyelőre nincs a fenti node-ok között — a globális `fireRate` node NEM torony-specifikus, minden toronyra egyformán hat (3 torony típus is ugyanazt a globális multiplikátort kapja). Egy valódi torony-specifikus upgrade-rendszer még TBD.
+**Eszköz/képesség ág**: egyelőre nincs kijelölt hely rá — a Towers/Special ág placeholder rétegei (L4-L6) jó jelöltek lehetnek, ha eldől a tartalom.
 
-**Fontos, rögzített elv**: a globális stat ág (élet, sebzés, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra.
+**Fontos, rögzített elv**: a globális stat ágak kiemelt prioritás a skill fa tervezésénél — ez az, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra. A pontos tartalom/ár a maradék node-okon **külön, ágcsoportonkénti** tervezési kör tárgya (folyamatban).
 
 **Induló állapot (Fázis 2 bootstrap, "üres" skill fa)**: a játékos 0 meta-arannyal indul, semmi nincs megvásárolva a fán. A skill fától **függetlenül**, alapból (baseline, nem unlock-kötött) rendelkezésre áll:
 - 1 torony típus (Rocket Tower, lásd lent) — a másik 2 skill fa vásárláshoz kötött (lásd "Torony-feloldás")
