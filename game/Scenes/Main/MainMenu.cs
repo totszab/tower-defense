@@ -274,26 +274,39 @@ public partial class MainMenu : Node2D
         }
     }
 
+    // A vonalakat egy-egy elforgatott ColorRect-tel rajzoljuk (nem egyedi
+    // _Draw()-val) — ugyanaz a rendszer, mint a gombok saját rajzolása, ami
+    // bizonyítottan jól követi a pan/zoom transzformot. Egy korábbi verzió
+    // egyetlen Control _Draw()-jával rajzolta az összes élet; az zoomolás
+    // közben nem (vagy alig) látszott — ez a csere ezt a bizonytalanságot
+    // küszöböli ki, nem csak a vastagságot/áttetszőséget hangolja.
+    private void BuildSkillTreeEdges()
+    {
+        foreach (var (from, to, branch) in _skillEdges)
+        {
+            var (_, border) = SkillBranchColors[branch];
+            var length = from.DistanceTo(to);
+
+            var line = new ColorRect
+            {
+                Position = from,
+                Size = new Vector2(length, 4f),
+                PivotOffset = new Vector2(0, 2f),
+                Rotation = (to - from).Angle(),
+                Color = new Color(border.R, border.G, border.B, 0.85f),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            _skillTreeCanvas.AddChild(line);
+        }
+    }
+
     private void BuildSkillNodes()
     {
         _skillTreeViewport = GetNode<Control>("CanvasLayer/SkillTreeViewport");
         _skillTreeCanvas = GetNode<Control>("CanvasLayer/SkillTreeViewport/SkillTreeCanvas");
 
         BuildSkillTreeLayout();
-
-        // Az élek egy KÜLÖN Control-ban élnek, ami a node-okkal AZONOS szülő
-        // (_skillTreeCanvas) gyereke — így ugyanazt a pan/zoom transzformot
-        // öröklik, a vonalak a node-okkal együtt mozognak (lásd SkillTreeEdgeLayer).
-        var edgeLayer = new SkillTreeEdgeLayer
-        {
-            Edges = _skillEdges.ConvertAll(e =>
-            {
-                var (_, border) = SkillBranchColors[e.Branch];
-                return (e.From, e.To, new Color(border.R, border.G, border.B, 0.85f));
-            }),
-        };
-        _skillTreeCanvas.AddChild(edgeLayer);
-        edgeLayer.QueueRedraw();
+        BuildSkillTreeEdges();
 
         var hubStyle = MakeNodeStyle(SkillHubColor.Fill, SkillHubColor.Border, 3);
         BuildHubButton(hubStyle);
