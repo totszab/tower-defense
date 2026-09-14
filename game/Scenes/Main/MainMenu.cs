@@ -25,7 +25,14 @@ public partial class MainMenu : Node2D
     // SkillSegment (a node-ok közti vonalhossz) miatt a fa nagyobb, mint a
     // képernyő — ezért zoomolható/pásztázható (lásd SkillTreeViewport).
     private const float NodeDiameter = 56f;
-    private const float SkillSegment = 145f;
+
+    // Fontos összefüggés: egy elágazásnál a két testvér node távolsága
+    // kb. 2×SkillSegment×sin(SkillTreeAngleStep) — ennek NAGYOBBNAK kell
+    // lennie, mint NodeDiameter, különben pont az elágazásoknál ér egymásba
+    // a két node (ez volt a hiba: 145px + 10° csak ~50px távolságot adott
+    // ki, kevesebbet, mint az 56px átmérő). 240px + 10° ~83px-et ad, kényelmes
+    // hézaggal.
+    private const float SkillSegment = 240f;
 
     // Minden elágazás/kanyar CSAK ennyit tér el a szülő irányától — a 4 ág
     // 90°-ra van egymástól, tehát a legrosszabb esetben is (4 lépés, mind
@@ -282,7 +289,7 @@ public partial class MainMenu : Node2D
             Edges = _skillEdges.ConvertAll(e =>
             {
                 var (_, border) = SkillBranchColors[e.Branch];
-                return (e.From, e.To, new Color(border.R, border.G, border.B, 0.5f));
+                return (e.From, e.To, new Color(border.R, border.G, border.B, 0.85f));
             }),
         };
         _skillTreeCanvas.AddChild(edgeLayer);

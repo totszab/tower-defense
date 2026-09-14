@@ -16,7 +16,10 @@ public partial class SkillTreeEdgeLayer : Control
         foreach (var (from, to, color) in Edges)
         {
             var dir = (to - from).Normalized();
-            DrawLine(from + dir * 4f, to - dir * 4f, color, 2f);
+            // Vastagabb, kevésbé áttetsző vonal — a felhasználó jelezte, hogy
+            // közelről (nagyobb zoomnál) alig látszott, pedig ez mutatja, melyik
+            // node melyikből ered.
+            DrawLine(from + dir * 4f, to - dir * 4f, color, 4f);
         }
     }
 }
