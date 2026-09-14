@@ -73,6 +73,8 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 - **Jobbra = Gold** — aranyszerzést növelő statok
 - **Le = Towers / Special** — új torony típusok megszerzése, speciális torony-fejlesztések
 
+**Zoomolható/pásztázható felület**: a fa nagyobb, mint a képernyő (a node-ok közti táv 145px, minden node egyforma méretű, 56px átmérő — az első verzió zsúfolt/kaotikus volt, kisebb-nagyobb node-okkal és rövid vonalakkal, ezt javította ez a revízió). A `CanvasLayer/SkillTreeViewport` (`clip_contents=true`) alatti `SkillTreeCanvas` Control tartalmazza az összes node-ot és a `SkillTreeEdgeLayer`-t (a vonalakat rajzoló külön Control, UGYANAZT a szülőt örökli, hogy a vonalak a node-okkal együtt mozogjanak/zoomoljanak). Induláskor a teljes fa látszik (kicsinyítve, középre igazítva, `MainMenu.FitSkillTreeToView`), onnantól görgővel zoomolható (a kurzor alatti pont marad a helyén), középső gomb húzásával pásztázható (`MainMenu._Input`).
+
 Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): réteg 1→2 egyenesen folytatódik; a **páratlan** rétegek (3, 5) 90°-ot fordulnak (1 gyerek — ez adja a "kanyart"); a **páros** rétegek (4, 6) ±45°-ban kettéágaznak. Ágenként 11 node (1+1+1+2+2+4), a hub-bal együtt összesen 45 node a pályán. Minden node a saját ágának megfelelő kerettel+háttérrel jelenik meg (`MainMenu.SkillBranchColors`) — a placeholder node-ok ugyanezt a színt kapják, csak elhalványítva, hogy üresen is látszódjon, melyik ághoz tartoznak.
 
 **Jelenleg 6 node valódi/vásárolható** (a régi fa mind a 6 statja, csak új pozícióban — semmilyen funkció nem veszett el):

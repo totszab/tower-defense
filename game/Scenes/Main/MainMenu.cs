@@ -19,11 +19,17 @@ public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
     private const int MaxTowersLevel = 10;
-    private const float NodeDiameter = 90f;
-    private const float RealNodeDiameter = 72f;
-    private const float PlaceholderNodeDiameter = 20f;
-    private const float SkillSegment = 58f;
+
+    // Minden node (hub, valódi, placeholder) egyforma méretű — a korábbi,
+    // node-típusonként eltérő méret zsúfoltnak/kaotikusnak hatott. A nagyobb
+    // SkillSegment (a node-ok közti vonalhossz) miatt a fa nagyobb, mint a
+    // képernyő — ezért zoomolható/pásztázható (lásd SkillTreeViewport).
+    private const float NodeDiameter = 56f;
+    private const float SkillSegment = 145f;
     private static readonly Vector2 SkillHubPosition = new(640, 340);
+    private static readonly Vector2 SkillTreeViewportSize = new(1280, 720);
+    private const float MinSkillTreeZoom = 0.15f;
+    private const float MaxSkillTreeZoom = 2.5f;
 
     private enum SkillBranch { Damage, Defense, Gold, Towers }
 
@@ -144,6 +150,10 @@ public partial class MainMenu : Node2D
     private GridContainer _roundGrid;
     private string _selectedLevelId;
 
+    private Control _skillTreeViewport;
+    private Control _skillTreeCanvas;
+    private bool _isPanningSkillTree;
+
     public override void _Ready()
     {
         _progress = new LocalFileSaveProvider().Load();
@@ -161,7 +171,6 @@ public partial class MainMenu : Node2D
         BuildSkillNodes();
         BuildCodex();
         RefreshUi();
-        QueueRedraw();
 
         // A skill-fa node-ok (és minden más futásidőben hozzáadott elem) a
         // popupok UTÁN kerül a fába, tehát alapból FÖLÉJÜK rajzolódna ki —
@@ -252,9 +261,26 @@ public partial class MainMenu : Node2D
 
     private void BuildSkillNodes()
     {
+        _skillTreeViewport = GetNode<Control>("CanvasLayer/SkillTreeViewport");
+        _skillTreeCanvas = GetNode<Control>("CanvasLayer/SkillTreeViewport/SkillTreeCanvas");
+
         BuildSkillTreeLayout();
 
-        var hubStyle = MakeNodeStyle(SkillHubColor.Fill, SkillHubColor.Border, NodeDiameter, 3);
+        // Az élek egy KÜLÖN Control-ban élnek, ami a node-okkal AZONOS szülő
+        // (_skillTreeCanvas) gyereke — így ugyanazt a pan/zoom transzformot
+        // öröklik, a vonalak a node-okkal együtt mozognak (lásd SkillTreeEdgeLayer).
+        var edgeLayer = new SkillTreeEdgeLayer
+        {
+            Edges = _skillEdges.ConvertAll(e =>
+            {
+                var (_, border) = SkillBranchColors[e.Branch];
+                return (e.From, e.To, new Color(border.R, border.G, border.B, 0.5f));
+            }),
+        };
+        _skillTreeCanvas.AddChild(edgeLayer);
+        edgeLayer.QueueRedraw();
+
+        var hubStyle = MakeNodeStyle(SkillHubColor.Fill, SkillHubColor.Border, 3);
         BuildHubButton(hubStyle);
 
         foreach (var (id, pos, branch) in _skillNodes)
@@ -270,6 +296,34 @@ public partial class MainMenu : Node2D
                 BuildPlaceholderNode(pos, fill, border);
             }
         }
+
+        FitSkillTreeToView();
+    }
+
+    // A fa kezdetben úgy van kicsinyítve/középre igazítva, hogy TELJES egészében
+    // látszódjon a viewportban — onnantól a felhasználó görgővel zoomol be a
+    // részletekhez (lásd _Input).
+    private void FitSkillTreeToView()
+    {
+        var minPos = SkillHubPosition;
+        var maxPos = SkillHubPosition;
+        foreach (var (_, pos, _) in _skillNodes)
+        {
+            minPos = new Vector2(Mathf.Min(minPos.X, pos.X), Mathf.Min(minPos.Y, pos.Y));
+            maxPos = new Vector2(Mathf.Max(maxPos.X, pos.X), Mathf.Max(maxPos.Y, pos.Y));
+        }
+
+        var margin = new Vector2(NodeDiameter, NodeDiameter) * 1.5f;
+        var treeSize = (maxPos - minPos) + margin * 2f;
+
+        var scale = Mathf.Clamp(
+            Mathf.Min(SkillTreeViewportSize.X / treeSize.X, SkillTreeViewportSize.Y / treeSize.Y),
+            MinSkillTreeZoom,
+            1f);
+
+        _skillTreeCanvas.Scale = new Vector2(scale, scale);
+        var center = (minPos + maxPos) / 2f;
+        _skillTreeCanvas.Position = SkillTreeViewportSize / 2f - center * scale;
     }
 
     private void BuildHubButton(StyleBoxFlat style)
@@ -287,24 +341,24 @@ public partial class MainMenu : Node2D
         button.AddThemeStyleboxOverride("pressed", style);
         button.AddThemeColorOverride("font_color", Colors.White);
         button.AddThemeColorOverride("font_hover_color", Colors.White);
-        button.AddThemeFontSizeOverride("font_size", 12);
+        button.AddThemeFontSizeOverride("font_size", 11);
         button.Pressed += () => OnNodePressed("towers");
 
-        _canvasLayer.AddChild(button);
+        _skillTreeCanvas.AddChild(button);
         _buttons["towers"] = button;
     }
 
     private void BuildRealNodeButton(string nodeId, Vector2 pos, Color fill, Color border)
     {
-        var normalStyle = MakeNodeStyle(fill, border, RealNodeDiameter, 3);
-        var hoverStyle = MakeNodeStyle(fill.Lightened(0.1f), border.Lightened(0.15f), RealNodeDiameter, 3);
-        var pressedStyle = MakeNodeStyle(fill.Darkened(0.1f), border, RealNodeDiameter, 3);
+        var normalStyle = MakeNodeStyle(fill, border, 3);
+        var hoverStyle = MakeNodeStyle(fill.Lightened(0.1f), border.Lightened(0.15f), 3);
+        var pressedStyle = MakeNodeStyle(fill.Darkened(0.1f), border, 3);
 
         var button = new Button
         {
-            Position = pos - new Vector2(RealNodeDiameter, RealNodeDiameter) / 2f,
-            CustomMinimumSize = new Vector2(RealNodeDiameter, RealNodeDiameter),
-            Size = new Vector2(RealNodeDiameter, RealNodeDiameter),
+            Position = pos - new Vector2(NodeDiameter, NodeDiameter) / 2f,
+            CustomMinimumSize = new Vector2(NodeDiameter, NodeDiameter),
+            Size = new Vector2(NodeDiameter, NodeDiameter),
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             ClipText = true,
         };
@@ -313,38 +367,39 @@ public partial class MainMenu : Node2D
         button.AddThemeStyleboxOverride("pressed", pressedStyle);
         button.AddThemeColorOverride("font_color", Colors.White);
         button.AddThemeColorOverride("font_hover_color", Colors.White);
-        button.AddThemeFontSizeOverride("font_size", 11);
+        button.AddThemeFontSizeOverride("font_size", 10);
         button.Pressed += () => OnNodePressed(nodeId);
 
-        _canvasLayer.AddChild(button);
+        _skillTreeCanvas.AddChild(button);
         _buttons[nodeId] = button;
     }
 
     // Üres node — még nincs eldöntve, mi legyen rajta, csak a FORMÁT mutatja.
     // Letiltott, a saját ága színében, elhalványítva (a felhasználó kérése:
     // "minden node a saját nagy típusának megfelelő keretet és hátteret kapjon").
+    // Ugyanakkora, mint a valódi node-ok — a felhasználó kérése szerint minden
+    // node egyforma méretű.
     private void BuildPlaceholderNode(Vector2 pos, Color fill, Color border)
     {
         var dimStyle = MakeNodeStyle(
             new Color(fill.R, fill.G, fill.B, 0.35f),
             new Color(border.R, border.G, border.B, 0.5f),
-            PlaceholderNodeDiameter,
             2);
 
         var button = new Button
         {
-            Position = pos - new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter) / 2f,
-            CustomMinimumSize = new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter),
-            Size = new Vector2(PlaceholderNodeDiameter, PlaceholderNodeDiameter),
+            Position = pos - new Vector2(NodeDiameter, NodeDiameter) / 2f,
+            CustomMinimumSize = new Vector2(NodeDiameter, NodeDiameter),
+            Size = new Vector2(NodeDiameter, NodeDiameter),
             Disabled = true,
             TooltipText = "Coming soon",
         };
         button.AddThemeStyleboxOverride("disabled", dimStyle);
 
-        _canvasLayer.AddChild(button);
+        _skillTreeCanvas.AddChild(button);
     }
 
-    private static StyleBoxFlat MakeNodeStyle(Color fill, Color border, float diameter, int borderWidth)
+    private static StyleBoxFlat MakeNodeStyle(Color fill, Color border, int borderWidth)
     {
         var style = new StyleBoxFlat
         {
@@ -354,10 +409,10 @@ public partial class MainMenu : Node2D
             BorderWidthBottom = borderWidth,
             BorderWidthLeft = borderWidth,
             BorderWidthRight = borderWidth,
-            CornerRadiusTopLeft = (int)(diameter / 2f),
-            CornerRadiusTopRight = (int)(diameter / 2f),
-            CornerRadiusBottomLeft = (int)(diameter / 2f),
-            CornerRadiusBottomRight = (int)(diameter / 2f),
+            CornerRadiusTopLeft = (int)(NodeDiameter / 2f),
+            CornerRadiusTopRight = (int)(NodeDiameter / 2f),
+            CornerRadiusBottomLeft = (int)(NodeDiameter / 2f),
+            CornerRadiusBottomRight = (int)(NodeDiameter / 2f),
         };
         return style;
     }
@@ -492,13 +547,49 @@ public partial class MainMenu : Node2D
         GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }
 
-    public override void _Draw()
+    // Görgő = zoom (a kurzor alatti pont a helyén marad), középső gomb húzása
+    // = pásztázás. _Input-ot használunk (nem GuiInput-ot), mert egy skill
+    // node gomb (mouse_filter=Stop) elnyelné az eseményt a szülő elől, mielőtt
+    // az eljutna a viewport GuiInput-jához — _Input mindent lát, a GUI-nál
+    // korábban fut le.
+    public override void _Input(InputEvent @event)
     {
-        foreach (var (from, to, branch) in _skillEdges)
+        if (_skillTreeViewport == null) return;
+        if (_codexPopup.Visible || _levelSelectPopup.Visible) return;
+
+        if (@event is InputEventMouseButton mouseButton)
         {
-            var (_, border) = SkillBranchColors[branch];
-            var dir = (to - from).Normalized();
-            DrawLine(from + dir * 4f, to - dir * 4f, new Color(border.R, border.G, border.B, 0.5f), 2f);
+            var local = mouseButton.Position - _skillTreeViewport.GlobalPosition;
+            var overViewport = local.X >= 0 && local.Y >= 0
+                && local.X <= _skillTreeViewport.Size.X && local.Y <= _skillTreeViewport.Size.Y;
+
+            if (mouseButton.Pressed && overViewport &&
+                (mouseButton.ButtonIndex == MouseButton.WheelUp || mouseButton.ButtonIndex == MouseButton.WheelDown))
+            {
+                var factor = mouseButton.ButtonIndex == MouseButton.WheelUp ? 1.15f : 1f / 1.15f;
+                ZoomSkillTree(factor, local);
+            }
+            else if (mouseButton.ButtonIndex == MouseButton.Middle)
+            {
+                _isPanningSkillTree = mouseButton.Pressed && overViewport;
+            }
         }
+        else if (@event is InputEventMouseMotion motion && _isPanningSkillTree)
+        {
+            _skillTreeCanvas.Position += motion.Relative;
+        }
+    }
+
+    private void ZoomSkillTree(float factor, Vector2 localCursor)
+    {
+        var oldScale = _skillTreeCanvas.Scale.X;
+        var newScale = Mathf.Clamp(oldScale * factor, MinSkillTreeZoom, MaxSkillTreeZoom);
+        if (Mathf.IsEqualApprox(newScale, oldScale)) return;
+
+        // A kurzor alatti pont (a canvas saját, skálázatlan terében) a helyén
+        // marad — enélkül a zoom mindig a canvas sarka felé "csúszna".
+        var canvasPoint = (localCursor - _skillTreeCanvas.Position) / oldScale;
+        _skillTreeCanvas.Scale = new Vector2(newScale, newScale);
+        _skillTreeCanvas.Position = localCursor - canvasPoint * newScale;
     }
 }
