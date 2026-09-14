@@ -26,6 +26,13 @@ public partial class MainMenu : Node2D
     // képernyő — ezért zoomolható/pásztázható (lásd SkillTreeViewport).
     private const float NodeDiameter = 56f;
     private const float SkillSegment = 145f;
+
+    // Minden elágazás/kanyar CSAK ennyit tér el a szülő irányától — a 4 ág
+    // 90°-ra van egymástól, tehát a legrosszabb esetben is (4 lépés, mind
+    // ugyanabba az irányba) max. 4×10°=40° a hub tengelyétől, jóval a ±45°-os
+    // "biztonsági zóna" alatt, hogy SOSE fordulhasson a szomszéd ág felé
+    // (a korábbi 90°-os kanyar/45°-os elágazás pont ezt okozta).
+    private const float SkillTreeAngleStep = 10f;
     private static readonly Vector2 SkillHubPosition = new(640, 340);
     private static readonly Vector2 SkillTreeViewportSize = new(1280, 720);
     private const float MinSkillTreeZoom = 0.15f;
@@ -247,15 +254,16 @@ public partial class MainMenu : Node2D
 
         if (layer % 2 == 1)
         {
-            // Páratlan réteg: egyenesen tovább, 90°-ot fordulva (a "kanyar").
-            var turned = dir.Rotated(Mathf.DegToRad(90f * spin));
+            // Páratlan réteg: egyenesen tovább, kicsit "kanyarodva" — de csak
+            // SkillTreeAngleStep fokot, sosem a szomszéd ág felé.
+            var turned = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * spin));
             BuildSkillBranch(pos, turned, layer + 1, spin, branch);
         }
         else
         {
-            // Páros réteg: kettéágazik, ±45°-ban.
-            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(45f)), layer + 1, 1, branch);
-            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(-45f)), layer + 1, -1, branch);
+            // Páros réteg: kettéágazik, ±SkillTreeAngleStep fokban.
+            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep)), layer + 1, 1, branch);
+            BuildSkillBranch(pos, dir.Rotated(Mathf.DegToRad(-SkillTreeAngleStep)), layer + 1, -1, branch);
         }
     }
 
@@ -552,6 +560,15 @@ public partial class MainMenu : Node2D
     // node gomb (mouse_filter=Stop) elnyelné az eseményt a szülő elől, mielőtt
     // az eljutna a viewport GuiInput-jához — _Input mindent lát, a GUI-nál
     // korábban fut le.
+    // Bal gombbal is lehessen húzni a felületet, a görgő/középső gomb mellett
+    // — de a bal gomb egyben a node-ok kattintása is, ezért egy kis
+    // elmozdulási küszöb dönti el, hogy ez most kattintás (hagyjuk átmenni a
+    // gombhoz) vagy húzás (akkor a canvas mozog, és a mozgás-eseményeket
+    // "elnyeljük", hogy a gomb ne regisztráljon kattintást is mellé).
+    private const float PanDragThreshold = 6f;
+    private bool _leftMouseDownInViewport;
+    private Vector2 _leftMouseDownPos;
+
     public override void _Input(InputEvent @event)
     {
         if (_skillTreeViewport == null) return;
@@ -573,10 +590,29 @@ public partial class MainMenu : Node2D
             {
                 _isPanningSkillTree = mouseButton.Pressed && overViewport;
             }
+            else if (mouseButton.ButtonIndex == MouseButton.Left)
+            {
+                _leftMouseDownInViewport = mouseButton.Pressed && overViewport;
+                _leftMouseDownPos = local;
+                if (!mouseButton.Pressed) _isPanningSkillTree = false;
+            }
         }
-        else if (@event is InputEventMouseMotion motion && _isPanningSkillTree)
+        else if (@event is InputEventMouseMotion motion)
         {
-            _skillTreeCanvas.Position += motion.Relative;
+            if (_isPanningSkillTree)
+            {
+                _skillTreeCanvas.Position += motion.Relative;
+                GetViewport().SetInputAsHandled();
+            }
+            else if (_leftMouseDownInViewport)
+            {
+                var local = motion.Position - _skillTreeViewport.GlobalPosition;
+                if ((local - _leftMouseDownPos).Length() > PanDragThreshold)
+                {
+                    _isPanningSkillTree = true;
+                    GetViewport().SetInputAsHandled();
+                }
+            }
         }
     }
 
