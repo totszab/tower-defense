@@ -15,14 +15,22 @@ public partial class Enemy : Area2D
 
     [Export] public EnemyData Data { get; set; }
 
+    // Gold ág, "enemy stats and gold drop": a spawn-oló (LevelBuild) állítja
+    // be AddChild ELŐTT — 1 = nincs bónusz. A HP-t és a becsapódáskori Dmg-t
+    // (LevelBuild.OnGoalEntered) is ez szorozza, a Value-t (arany) pedig
+    // LevelBuild.OnEnemyKilled — az EnemyData.tres-t magát sosem módosítjuk
+    // (megosztott resource, lásd a CollisionShape2D-nél is).
+    public float StatMultiplier { get; set; } = 1f;
+
     public bool IsDead => _dead;
+    public float EffectiveMaxHp => Data.Hp * StatMultiplier;
 
     private float _currentHp;
     private bool _dead;
 
     public override void _Ready()
     {
-        _currentHp = Data.Hp;
+        _currentHp = EffectiveMaxHp;
 
         var sprite = GetNode<Sprite2D>("Sprite2D");
         if (Data.Shape == EnemyData.EnemyShape.Triangle)
@@ -91,7 +99,7 @@ public partial class Enemy : Area2D
             DrawColoredPolygon(points, Data.Tint);
         }
 
-        var pct = Data.Hp > 0f ? Mathf.Clamp(_currentHp / Data.Hp, 0f, 1f) : 0f;
+        var pct = EffectiveMaxHp > 0f ? Mathf.Clamp(_currentHp / EffectiveMaxHp, 0f, 1f) : 0f;
         var barWidth = BarWidth * Data.SpriteScale;
         var topLeft = new Vector2(-barWidth / 2f, BarYOffset * Data.SpriteScale);
 

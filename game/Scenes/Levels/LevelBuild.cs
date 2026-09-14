@@ -47,6 +47,15 @@ public partial class LevelBuild : Node2D
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
     private const int BaseStartingHp = 3;
 
+    // Gold ág, "extra mini boss": melyik pálya melyik mini boss EnemyData-ját
+    // spawnolja bónuszként, ha a szerencse úgy hozza (lásd _extraMiniBossChance).
+    private static readonly Dictionary<string, string> LevelMiniBossPaths = new()
+    {
+        ["Level1"] = "res://Data/Enemies/blue_slime_boss.tres",
+        ["Level2"] = "res://Data/Enemies/red_slime_boss.tres",
+        ["Level3"] = "res://Data/Enemies/cyan_slime_boss.tres",
+    };
+
     // Kézzel karbantartott, angol megjelenítési név — akárcsak MainMenu.LevelDisplayNames.
     private static string LevelDisplayName(string levelId) => levelId switch
     {
@@ -111,8 +120,28 @@ public partial class LevelBuild : Node2D
     private WaveData _wave;
     private int _currentStepIndex;
     private int _totalEnemiesThisWave;
+    private int _baseTotalEnemiesThisWave;
     private int _maxTowers;
     private float _goldMultiplier;
+
+    // Defense ág (lásd GAMEPLAY.md "Skill fa" — Damage ág után a Defense/Gold
+    // ág első tartalom-köre).
+    private int _armor;
+    private int _regenPerKillsAmount;
+    private int _regenPerTimeAmount;
+    private int _killsSinceRegen;
+    private float _regenTimeAccumulator;
+
+    // Gold ág.
+    private float _doubleGoldChance;
+    private int _goldAfterWin;
+    private int _goldPerKill;
+    private float _enemySpawnBonus;
+    private float _goldOnHitChance;
+    private float _enemyStatMultiplier = 1f;
+    private float _extraMiniBossChance;
+    private bool _bonusMiniBossPending;
+    private int _effectiveStepCount;
 
     private readonly Dictionary<string, float> _damageByTower = new();
     private ulong _roundStartMsec;
@@ -189,14 +218,35 @@ public partial class LevelBuild : Node2D
 
         _roundNumber = RequestedRoundNumber;
         _wave = GD.Load<WaveData>($"res://Data/Waves/{_levelId}/Round{_roundNumber}.tres");
-        _totalEnemiesThisWave = _wave.TotalEnemyCount();
 
         // "towers" node legalább 1-en indul (lásd PlayerProgress.GetSkillLevel), így
         // egy friss mentésnél is lerakható az első torony.
         _maxTowers = _progress.GetSkillLevel("towers");
-        _goldMultiplier = 1f + _progress.GetSkillLevel("currency") * 0.10f;
+        _goldMultiplier = 1f + (_progress.GetSkillLevel("currency") + _progress.GetSkillLevel("currency2")) * 0.10f;
 
-        _maxHp = BaseStartingHp + _progress.GetSkillLevel("hp") * 2;
+        _maxHp = BaseStartingHp + (_progress.GetSkillLevel("hp") + _progress.GetSkillLevel("hp2")) * 2;
+        _armor = _progress.GetSkillLevel("armor");
+        _regenPerKillsAmount = _progress.GetSkillLevel("regenPerKills");
+        _regenPerTimeAmount = _progress.GetSkillLevel("regenPerTime");
+
+        _doubleGoldChance = _progress.GetSkillLevel("doubleGoldChance") * 0.02f;
+        _goldAfterWin = _progress.GetSkillLevel("goldAfterWin") * 10;
+        _goldPerKill = _progress.GetSkillLevel("goldPerKill");
+        _enemySpawnBonus = _progress.GetSkillLevel("enemySpawnBonus") * 0.05f;
+        _goldOnHitChance = _progress.GetSkillLevel("goldOnHitChance") * 0.02f;
+        _enemyStatMultiplier = 1f + _progress.GetSkillLevel("enemyStatsAndDrop") * 0.05f;
+        _extraMiniBossChance = _progress.GetSkillLevel("extraMiniBossChance") * 0.05f;
+
+        // Az enemySpawnBonus a hullám tényleges elemszámát növeli — a győzelmi
+        // feltétel (lásd ResolveEnemy) ehhez az IGAZÍTOTT összeghez viszonyít,
+        // nem a nyers WaveData.TotalEnemyCount()-hoz.
+        _baseTotalEnemiesThisWave = 0;
+        foreach (var step in _wave.Steps)
+        {
+            _baseTotalEnemiesThisWave += AdjustedSpawnCount(step.Count);
+        }
+        _totalEnemiesThisWave = _baseTotalEnemiesThisWave;
+
         _hp = _maxHp;
         UpdateHpBar();
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
@@ -215,6 +265,11 @@ public partial class LevelBuild : Node2D
         QueueRedraw();
     }
 
+    // Gold ág, "enemy spawn bonus": az adott lépés eredeti darabszámát
+    // növeli (lásd _enemySpawnBonus) — sosem csökkenti, min. az eredeti szám.
+    private int AdjustedSpawnCount(int baseCount) =>
+        Mathf.Max(baseCount, Mathf.RoundToInt(baseCount * (1f + _enemySpawnBonus)));
+
     // Típusonként külön sor (ikon + "Nx Name"), ne egy összesített szám —
     // Round 3-nál pl. "10x Green Slime" ÉS "5x Blue Slime" külön sorban.
     private void BuildEnemyBreakdown()
@@ -230,7 +285,7 @@ public partial class LevelBuild : Node2D
                 order.Add(step.Enemy);
             }
 
-            counts[step.Enemy] += step.Count;
+            counts[step.Enemy] += AdjustedSpawnCount(step.Count);
         }
 
         foreach (var data in order)
@@ -250,6 +305,26 @@ public partial class LevelBuild : Node2D
     public override void _ExitTree()
     {
         DamageTracker.DamageDealt -= OnDamageDealt;
+    }
+
+    // Defense ág, "health regen / 5 sec" — csak aktív kör alatt fut.
+    public override void _Process(double delta)
+    {
+        if (!_roundActive || _regenPerTimeAmount <= 0) return;
+
+        _regenTimeAccumulator += (float)delta;
+        if (_regenTimeAccumulator >= 5f)
+        {
+            _regenTimeAccumulator -= 5f;
+            HealPlayer(_regenPerTimeAmount);
+        }
+    }
+
+    private void HealPlayer(int amount)
+    {
+        if (amount <= 0 || _hp >= _maxHp) return;
+        _hp = Mathf.Min(_maxHp, _hp + amount);
+        UpdateHpBar();
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -490,11 +565,21 @@ public partial class LevelBuild : Node2D
         _goldCollected = 0;
         _currentStepIndex = 0;
         _enemiesResolved = 0;
+        _killsSinceRegen = 0;
+        _regenTimeAccumulator = 0f;
         _damageByTower.Clear();
         _roundStartMsec = Time.GetTicksMsec();
         SetBuildingEnabled(false);
         _startRoundButton.Text = "Retreat";
         _backButton.Disabled = true;
+
+        // Gold ág, "extra mini boss" — egyszer sorsolva kör-indításkor, nem
+        // minden spawn-nál; a győzelmi küszöböt (lásd ResolveEnemy) is ekkor
+        // igazítjuk, hogy a bónusz boss is beleszámítson.
+        _bonusMiniBossPending = _extraMiniBossChance > 0f && GD.Randf() < _extraMiniBossChance
+            && LevelMiniBossPaths.ContainsKey(_levelId);
+        _totalEnemiesThisWave = _baseTotalEnemiesThisWave + (_bonusMiniBossPending ? 1 : 0);
+        _effectiveStepCount = _wave.Steps.Length + (_bonusMiniBossPending ? 1 : 0);
 
         SpawnStep();
         _currentStepIndex = 1;
@@ -504,15 +589,18 @@ public partial class LevelBuild : Node2D
 
     private void OnSpawnTimerTimeout()
     {
-        if (_currentStepIndex >= _wave.Steps.Length)
+        if (_currentStepIndex < _wave.Steps.Length)
         {
-            _spawnTimer.Stop();
-            return;
+            SpawnStep();
+        }
+        else if (_bonusMiniBossPending)
+        {
+            _bonusMiniBossPending = false;
+            SpawnBonusMiniBoss();
         }
 
-        SpawnStep();
         _currentStepIndex++;
-        if (_currentStepIndex >= _wave.Steps.Length)
+        if (_currentStepIndex >= _effectiveStepCount)
         {
             _spawnTimer.Stop();
         }
@@ -521,16 +609,24 @@ public partial class LevelBuild : Node2D
     private void SpawnStep()
     {
         var step = _wave.Steps[_currentStepIndex];
-        for (var i = 0; i < step.Count; i++)
+        var count = AdjustedSpawnCount(step.Count);
+        for (var i = 0; i < count; i++)
         {
             SpawnEnemy(step.Enemy, i);
         }
+    }
+
+    private void SpawnBonusMiniBoss()
+    {
+        var bossData = GD.Load<EnemyData>(LevelMiniBossPaths[_levelId]);
+        SpawnEnemy(bossData);
     }
 
     private void SpawnEnemy(EnemyData data, int spawnIndexInStep = 0)
     {
         var enemy = EnemyScene.Instantiate<Enemy>();
         enemy.Data = data;
+        enemy.StatMultiplier = _enemyStatMultiplier;
         // Egy tick-en belül a batch tagjai ne fedjék teljesen egymást — egy
         // tile-nyi hézaggal "mögé" spawnolnak, hogy látszódjon, hányan jönnek.
         var xOffset = -spawnIndexInStep * GridConstants.TileSize;
@@ -541,8 +637,24 @@ public partial class LevelBuild : Node2D
 
     private void OnEnemyKilled(Enemy enemy)
     {
-        _goldCollected += Mathf.RoundToInt(enemy.Data.Value * _goldMultiplier);
+        var gold = enemy.Data.Value * enemy.StatMultiplier * _goldMultiplier + _goldPerKill;
+        if (_doubleGoldChance > 0f && GD.Randf() < _doubleGoldChance)
+        {
+            gold *= 2f;
+        }
+        _goldCollected += Mathf.RoundToInt(gold);
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency + _goldCollected}";
+
+        if (_regenPerKillsAmount > 0)
+        {
+            _killsSinceRegen++;
+            if (_killsSinceRegen >= 10)
+            {
+                _killsSinceRegen -= 10;
+                HealPlayer(_regenPerKillsAmount);
+            }
+        }
+
         ResolveEnemy();
     }
 
@@ -556,7 +668,9 @@ public partial class LevelBuild : Node2D
         {
             // TBD (ROADMAP Fázis 4): ez a helyi _hp majd a RunState autoloadba
             // költözik, amikor a teljes statisztika/skill fa kör megépül.
-            _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(enemy.Data.Dmg));
+            var effectiveDmg = enemy.Data.Dmg * enemy.StatMultiplier;
+            var reducedDmg = Mathf.Max(0f, effectiveDmg - _armor);
+            _hp = Mathf.Max(0, _hp - Mathf.CeilToInt(reducedDmg));
             UpdateHpBar();
             enemy.QueueFree();
 
@@ -574,6 +688,15 @@ public partial class LevelBuild : Node2D
     {
         if (!_roundActive) return;
         _damageByTower[towerName] = _damageByTower.GetValueOrDefault(towerName) + amount;
+
+        // Gold ág, "chance to get 1 gold when shoot an enemy" — minden landolt
+        // találatnál sorsolva (Splash Tower-nél így minden érintett ellenségre
+        // külön, hiszen mindegyikre lefut a DamageTracker.Report).
+        if (_goldOnHitChance > 0f && GD.Randf() < _goldOnHitChance)
+        {
+            _goldCollected += 1;
+            _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency + _goldCollected}";
+        }
     }
 
     private void ResolveEnemy()
@@ -598,6 +721,14 @@ public partial class LevelBuild : Node2D
         foreach (var enemy in _enemies.GetChildren())
         {
             enemy.QueueFree();
+        }
+
+        // Gold ág, "+ gold after win" — csak sikeres teljesítésnél, a
+        // StatsPopup megjelenítése ELŐTT, hogy a kijelzett összeg már
+        // tartalmazza.
+        if (success)
+        {
+            _goldCollected += _goldAfterWin;
         }
 
         ShowStatsPopup(outcomeTitle, success);

@@ -83,7 +83,7 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. réteg (a hub 4 közvetlen gyereke) után a **páros** rétegek (2, 4, 6) KETTÉ ágaznak (±10°), a **páratlan** rétegek (3, 5) egyenesen folytatódnak (1 gyerek, kicsit "kanyarodva") — azaz "4 → 2-2 → 1-1 → 2-2 → 1-1 → 2-2". Ágenként 21 node (1+2+2+4+4+8), a hub-bal együtt összesen 85 node a pályán. Minden node a saját ágának megfelelő kerettel+háttérrel jelenik meg (`MainMenu.SkillBranchColors`) — a placeholder node-ok ugyanezt a színt kapják, csak elhalványítva, hogy üresen is látszódjon, melyik ághoz tartoznak.
 
-**Jelenleg 15 node valódi/vásárolható** — a hub + a 4 fő ág gyökere (dmg/hp/currency), a Towers ág 2 unlock node-ja, és a teljes **Damage ág L1-L4 rétege** (7 node, ld. lent):
+**Jelenleg 26 node valódi/vásárolható** — a hub, a Towers ág 2 unlock node-ja, és a **Damage/Defense/Gold ágak teljes L1-L4 rétege**:
 
 | Node (UI felirat) | id | Pozíció (ág / réteg) | Hatás / szint | Ár |
 |---|---|---|---|---|
@@ -98,9 +98,23 @@ Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. r�
 | Crit Chance II | `critChance2` | Damage / L4, a `critDamage` (1.) leszármazottja | +1% kritikus találat esély/szint (összeadódik a `critChance`-szel) | 5/10/20/35/50 |
 | Fire Twice Chance | `fireTwiceChance` | Damage / L4, a `critDamage` (2.) leszármazottja | +2% esély, hogy a normál lövés UTÁN AZONNAL (cooldown kihagyásával) még egyszer tüzeljen — **csak 3 szint**, szándékosan drága | 400/1200/3200 |
 | Health | `hp` | Defense / L1 | +2 kezdő élet | 5/10/20/35/50 |
+| Armor | `armor` | Defense / L2 (1. node) | +1 páncél/szint — flat levonás minden beérkező (célba jutott) ellenség sebzéséből, 0-ig floor-olva | 5/10/20/35/50 |
+| Kill Regen | `regenPerKills` | Defense / L2 (2. node) | +N HP minden 10. megölt ellenség után (N=szint) — **csak 3 szint** | 15/35/75 |
+| Health II | `hp2` | Defense / L3, az Armor leszármazottja | +2 kezdő élet/szint (ugyanaz a formula, mint `hp`, összeadódik vele) | 5/10/20/35/50 |
+| Time Regen | `regenPerTime` | Defense / L3, a Kill Regen leszármazottja | +N HP 5 másodpercenként, amíg a kör aktív (N=szint) — **csak 3 szint** | 15/35/75 |
 | Gold | `currency` | Gold / L1 | +10% szerzett arany (szorzó) | 50/150/300/500/1000 |
+| Double Gold Chance | `doubleGoldChance` | Gold / L2 (1. node) | +2%/szint esély, hogy egy ellenség megölésekor duplázódjon a kapott arany — **csak 3 szint** | 15/35/75 |
+| Win Bonus | `goldAfterWin` | Gold / L2 (2. node) | +10 arany/szint, ha a kör sikeres (nem jár Retreat-nél) | 50/150/300/500/1000 |
+| Gold Per Kill | `goldPerKill` | Gold / L3, a Double Gold Chance leszármazottja | +1 arany/ölés per szint (flat, a szorzókon FELÜL) — **csak 3 szint**, szándékosan drága | 600/1800/5000 |
+| Enemy Surge | `enemySpawnBonus` | Gold / L3, a Win Bonus leszármazottja | +5%/szint TÖBB ellenség spawnol ebben a körben (kockázat/jutalom — nem csökkenti az eredeti számot) — **csak 4 szint** | 20/45/90/160 |
+| Gold II | `currency2` | Gold / L4, a Gold Per Kill (1.) leszármazottja | +10% szerzett arany/szint (ugyanaz a formula, mint `currency`, összeadódik vele) | 50/150/300/500/1000 |
+| Hit Gold Chance | `goldOnHitChance` | Gold / L4, a Gold Per Kill (2.) leszármazottja | +2%/szint esély, hogy egy TALÁLAT (nem csak ölés) 1 arany bónuszt adjon — **csak 3 szint** | 15/35/75 |
+| Enemy Buff | `enemyStatsAndDrop` | Gold / L4, az Enemy Surge (1.) leszármazottja | +5%/szint az ellenségek HP/Dmg/Value értékére (kockázat/jutalom) — **csak 4 szint** | 20/45/90/160 |
+| Bonus Boss | `extraMiniBossChance` | Gold / L4, az Enemy Surge (2.) leszármazottja | +5%/szint esély, hogy a kör végén EGY extra mini boss is spawnoljon (a pálya saját mini bossa, lásd `LevelBuild.LevelMiniBossPaths`) — **csak 3 szint** | 15/35/75 |
 | Splash Tower | `unlockSplash` | Towers / L2 | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
 | Sniper Tower | `unlockSniper` | Towers / L3 | Egyszeri: feloldja a Sniper Tower típust | 400 |
+
+**A Defense/Gold ág implementációja** (`LevelBuild.cs`): az armor/regen/gold-mechanikák mind a helyi kör-állapotban élnek (`_hp`, `_goldCollected` stb.), ugyanúgy, mint az összes eddigi statisztika. Az `enemySpawnBonus` a hullám tényleges spawn-számát növeli (`AdjustedSpawnCount`), ezért a győzelmi feltétel (`_totalEnemiesThisWave`) is ehhez az IGAZÍTOTT összeghez igazodik, nem a nyers `WaveData.TotalEnemyCount()`-hoz. Az `enemyStatsAndDrop` az `Enemy.StatMultiplier` mezőn keresztül hat (spawn-oláskor beállítva) — SOHA nem módosítja magát az `EnemyData` resource-ot (megosztott, lásd a `CollisionShape2D`-s óvatosságot is). A `goldOnHitChance` a MEGLÉVŐ `DamageTracker.DamageDealt` eseményre épül (amit a `OnDamageDealt` már amúgy is figyel a statisztika popuphoz), nem igényelt új esemény-rendszert.
 
 A Damage ág fája: `dmg` (L1) → **{`fireRate`, `critChance`}** (L2, kettéágazik) → **{`dmg2` a fireRate-ből, `critDamage` a critChance-ből}** (L3, egyenesen tovább) → **{`projectileCount`+`fireRate2` a dmg2-ből, `critChance2`+`fireTwiceChance` a critDamage-ből}** (L4, mindkettő újra kettéágazik). A `critChance`/`critChance2`/`critDamage` egy ÚJ mechanikát vezet be (korábban nem volt kritikus találat a játékban) — a tényleges harci logika (`Tower.FireAt`) sorsolja a kritikus találatot és az extra lövedékeket/lövést, lásd "Tornyok" MEGJEGYZÉS lent.
 

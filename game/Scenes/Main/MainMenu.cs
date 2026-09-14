@@ -106,6 +106,13 @@ public partial class MainMenu : Node2D
     private static readonly int[] ProjectileCountCosts = { 500, 1500, 4000 }; // csak 3 szint, szándékosan drága/exponenciális
     private static readonly int[] FireTwiceChanceCosts = { 400, 1200, 3200 }; // csak 3 szint, szintén drága
 
+    // Defense/Gold ág — osztott görbék a "normál" (nem kifejezetten drágának
+    // jelzett) 3/4-szintes node-oknak, hogy ne kelljen mindegyiknek saját
+    // tömböt írni (lásd Tower.cs/LevelBuild.cs a tényleges hatásokért).
+    private static readonly int[] Normal3LevelCosts = { 15, 35, 75 };
+    private static readonly int[] Normal4LevelCosts = { 20, 45, 90, 160 };
+    private static readonly int[] GoldPerKillCosts = { 600, 1800, 5000 }; // szándékosan drága/exponenciális
+
     // Kézzel karbantartott lista — nincs központi "minden ellenség" registry,
     // amikor új ellenségtípus készül, ide is fel kell venni.
     private static readonly string[] CodexEnemyPaths =
@@ -154,8 +161,27 @@ public partial class MainMenu : Node2D
         [(SkillBranch.Damage, 4, "21")] = "critChance2",
         [(SkillBranch.Damage, 4, "22")] = "fireTwiceChance",
 
+        // Defense ág: 1(hub)->hp, 2.1->armor, 2.2->regenPerKills,
+        // 3.1 (armor-ból)->hp2, 3.2 (regenPerKills-ből)->regenPerTime.
         [(SkillBranch.Defense, 1, "")] = "hp",
+        [(SkillBranch.Defense, 2, "1")] = "armor",
+        [(SkillBranch.Defense, 2, "2")] = "regenPerKills",
+        [(SkillBranch.Defense, 3, "1")] = "hp2",
+        [(SkillBranch.Defense, 3, "2")] = "regenPerTime",
+
+        // Gold ág: 1(hub)->currency, 2.1->doubleGoldChance, 2.2->goldAfterWin,
+        // 3.1 (doubleGoldChance-ból)->goldPerKill, 3.2 (goldAfterWin-ből)->enemySpawnBonus,
+        // 4.11->currency2, 4.12->goldOnHitChance, 4.21->enemyStatsAndDrop, 4.22->extraMiniBossChance.
         [(SkillBranch.Gold, 1, "")] = "currency",
+        [(SkillBranch.Gold, 2, "1")] = "doubleGoldChance",
+        [(SkillBranch.Gold, 2, "2")] = "goldAfterWin",
+        [(SkillBranch.Gold, 3, "1")] = "goldPerKill",
+        [(SkillBranch.Gold, 3, "2")] = "enemySpawnBonus",
+        [(SkillBranch.Gold, 4, "11")] = "currency2",
+        [(SkillBranch.Gold, 4, "12")] = "goldOnHitChance",
+        [(SkillBranch.Gold, 4, "21")] = "enemyStatsAndDrop",
+        [(SkillBranch.Gold, 4, "22")] = "extraMiniBossChance",
+
         [(SkillBranch.Towers, 2, "1")] = "unlockSplash",
         [(SkillBranch.Towers, 3, "1")] = "unlockSniper",
     };
@@ -180,6 +206,18 @@ public partial class MainMenu : Node2D
         ["fireRate2"] = "+5% attack speed",
         ["projectileCount"] = "+1 projectile per shot",
         ["fireTwiceChance"] = "+2% chance to fire an extra shot",
+        ["armor"] = "+1 armor (reduces incoming damage)",
+        ["regenPerKills"] = "+1 health regen per 10 kills",
+        ["hp2"] = "+2 health",
+        ["regenPerTime"] = "+1 health regen per 5 sec",
+        ["doubleGoldChance"] = "+2% chance to double gold from a kill",
+        ["goldAfterWin"] = "+10 gold after winning a round",
+        ["goldPerKill"] = "+1 gold per kill",
+        ["enemySpawnBonus"] = "+5% more enemies spawn this round",
+        ["currency2"] = "+10% gold",
+        ["goldOnHitChance"] = "+2% chance to get 1 gold per hit",
+        ["enemyStatsAndDrop"] = "+5% enemy HP/damage/gold drop",
+        ["extraMiniBossChance"] = "+5% chance to spawn an extra mini boss this round",
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -501,18 +539,26 @@ public partial class MainMenu : Node2D
         "fireRate2" => FireRate2Costs,
         "projectileCount" => ProjectileCountCosts,
         "fireTwiceChance" => FireTwiceChanceCosts,
+        "armor" or "hp2" => DmgHpCosts,
+        "regenPerKills" or "regenPerTime" or "doubleGoldChance" or "goldOnHitChance" or "extraMiniBossChance" => Normal3LevelCosts,
+        "goldAfterWin" or "currency2" => CurrencyCosts,
+        "goldPerKill" => GoldPerKillCosts,
+        "enemySpawnBonus" or "enemyStatsAndDrop" => Normal4LevelCosts,
         _ => CurrencyCosts,
     };
 
     // A legtöbb node 0-5 szintes, de az egyszeri torony-unlockok csak 0 vagy 1
-    // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök),
-    // a projectileCount/fireTwiceChance pedig szándékosan csak 3 szintes
-    // (drága, exponenciális node-ok, lásd Costs tömbjeik).
+    // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök), a
+    // projectileCount/fireTwiceChance/goldPerKill/regen-ek/doubleGoldChance/
+    // goldOnHitChance/extraMiniBossChance szándékosan csak 3, az
+    // enemySpawnBonus/enemyStatsAndDrop csak 4 szintes (lásd Costs tömbjeik).
     private static int MaxLevelFor(string nodeId) => nodeId switch
     {
         "unlockSplash" or "unlockSniper" => 1,
         "towers" => MaxTowersLevel,
-        "projectileCount" or "fireTwiceChance" => 3,
+        "projectileCount" or "fireTwiceChance" or "regenPerKills" or "regenPerTime"
+            or "doubleGoldChance" or "goldPerKill" or "goldOnHitChance" or "extraMiniBossChance" => 3,
+        "enemySpawnBonus" or "enemyStatsAndDrop" => 4,
         _ => MaxLevel,
     };
 
@@ -531,6 +577,18 @@ public partial class MainMenu : Node2D
         "fireRate2" => $"+{level * 5}% attack speed",
         "projectileCount" => $"+{level} projectiles",
         "fireTwiceChance" => $"+{level * 2}% fire twice",
+        "armor" => $"+{level} armor",
+        "regenPerKills" => $"+{level} hp/10 kills",
+        "hp2" => $"+{level * 2} health",
+        "regenPerTime" => $"+{level} hp/5 sec",
+        "doubleGoldChance" => $"+{level * 2}% double gold",
+        "goldAfterWin" => $"+{level * 10} gold/win",
+        "goldPerKill" => $"+{level} gold/kill",
+        "enemySpawnBonus" => $"+{level * 5}% enemies",
+        "currency2" => $"+{level * 10}% gold",
+        "goldOnHitChance" => $"+{level * 2}% gold/hit",
+        "enemyStatsAndDrop" => $"+{level * 5}% enemy stats",
+        "extraMiniBossChance" => $"+{level * 5}% extra boss",
         _ => "",
     };
 
