@@ -16,6 +16,10 @@ public partial class Tower : Node2D
     private float _cooldown;
     private int _bonusDamage;
     private float _fireRateMultiplier = 1f;
+    private float _critChance;
+    private float _critDamageMultiplier = 1f;
+    private int _extraProjectiles;
+    private float _fireTwiceChance;
 
     public float EffectiveDamage => Data.Damage + _bonusDamage;
     public float EffectiveFireRate => Data.FireRate * _fireRateMultiplier;
@@ -23,10 +27,14 @@ public partial class Tower : Node2D
     public override void _Ready()
     {
         var progress = new LocalFileSaveProvider().Load();
-        _bonusDamage = progress.GetSkillLevel("dmg");
-        // TBD: ma minden toronyra hat (csak 1 típus van), amikor több torony
-        // típus lesz, ezt torony-specifikusra kell szűkíteni (GAMEPLAY.md).
-        _fireRateMultiplier = 1f + progress.GetSkillLevel("fireRate") * 0.05f;
+        // TBD: ma minden toronyra hat (globális), amikor torony-specifikus
+        // upgrade-ág is lesz, ezt szűkíteni kell (GAMEPLAY.md "Skill fa").
+        _bonusDamage = progress.GetSkillLevel("dmg") + progress.GetSkillLevel("dmg2") * 2;
+        _fireRateMultiplier = 1f + (progress.GetSkillLevel("fireRate") + progress.GetSkillLevel("fireRate2")) * 0.05f;
+        _critChance = (progress.GetSkillLevel("critChance") + progress.GetSkillLevel("critChance2")) * 0.01f;
+        _critDamageMultiplier = 1f + progress.GetSkillLevel("critDamage") * 0.05f;
+        _extraProjectiles = progress.GetSkillLevel("projectileCount");
+        _fireTwiceChance = progress.GetSkillLevel("fireTwiceChance") * 0.02f;
 
         var rangeArea = GetNode<Area2D>("RangeArea");
         rangeArea.AreaEntered += OnAreaEntered;
@@ -49,13 +57,35 @@ public partial class Tower : Node2D
         }
 
         FireAt(_enemiesInRange[0]);
+        // Damage ág, L4: esély, hogy a normál lövés UTÁN azonnal még egyszer
+        // tüzeljen (nem várja meg a cooldown-t) — a FireAt saját maga
+        // (újra)sorsolja a kritikus találatot/extra lövedékeket is.
+        if (_fireTwiceChance > 0f && GD.Randf() < _fireTwiceChance && _enemiesInRange.Count > 0)
+        {
+            FireAt(_enemiesInRange[0]);
+        }
+
         _cooldown = 1f / EffectiveFireRate;
     }
 
     private void FireAt(Enemy target)
     {
-        var damage = EffectiveDamage;
+        var isCrit = _critChance > 0f && GD.Randf() < _critChance;
+        var damage = EffectiveDamage * (isCrit ? _critDamageMultiplier : 1f);
 
+        // Damage ág, L4: +1 lövedék/szint — mindegyik ugyanarra a célpontra
+        // csapódik be (a torony egyetlen célpontot fókuszál, lásd
+        // GAMEPLAY.md a "front-focus" mechanikáról), tehát gyakorlatilag a
+        // kifejtett sebzést sokszorozza az aktuális célponton.
+        var shotCount = 1 + _extraProjectiles;
+        for (var i = 0; i < shotCount; i++)
+        {
+            FireProjectile(target, damage);
+        }
+    }
+
+    private void FireProjectile(Enemy target, float damage)
+    {
         if (Data.ProjectileScene == null)
         {
             target.TakeDamage(damage);

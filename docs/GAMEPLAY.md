@@ -83,21 +83,30 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. réteg (a hub 4 közvetlen gyereke) után a **páros** rétegek (2, 4, 6) KETTÉ ágaznak (±10°), a **páratlan** rétegek (3, 5) egyenesen folytatódnak (1 gyerek, kicsit "kanyarodva") — azaz "4 → 2-2 → 1-1 → 2-2 → 1-1 → 2-2". Ágenként 21 node (1+2+2+4+4+8), a hub-bal együtt összesen 85 node a pályán. Minden node a saját ágának megfelelő kerettel+háttérrel jelenik meg (`MainMenu.SkillBranchColors`) — a placeholder node-ok ugyanezt a színt kapják, csak elhalványítva, hogy üresen is látszódjon, melyik ághoz tartoznak.
 
-**Jelenleg 6 node valódi/vásárolható** (a régi fa mind a 6 statja, csak új pozícióban — semmilyen funkció nem veszett el):
+**Jelenleg 15 node valódi/vásárolható** — a hub + a 4 fő ág gyökere (dmg/hp/currency), a Towers ág 2 unlock node-ja, és a teljes **Damage ág L1-L4 rétege** (7 node, ld. lent):
 
 | Node (UI felirat) | id | Pozíció (ág / réteg) | Hatás / szint | Ár |
 |---|---|---|---|---|
 | Tower Number | `towers` | Hub | Overall torony-slot szám; **1. szinten indul alapból**, most **10-ig** fejleszthető (volt: 5) | 100/250/500/750/1000/1500/2000/3000/4000 (1→10, **TBD placeholder a 6-10. szinten** — a 250-750 közti árakat tartottuk, utána nem véglegesített, exponenciális becslés) |
 | Damage | `dmg` | Damage / L1 | +1 sebzés MINDEN toronynak, globálisan | 5/10/20/35/50 |
-| Attack Speed | `fireRate` | Damage / L2 | MINDEN torony tűzgyorsasága +5%/szint (globális, nem torony-specifikus) | 5/10/20/35/50 (**TBD placeholder**) |
+| Attack Speed | `fireRate` | Damage / L2 (1. node) | MINDEN torony tűzgyorsasága +5%/szint (globális) | 5/10/20/35/50 (**TBD placeholder**) |
+| Crit Chance | `critChance` | Damage / L2 (2. node) | +1% kritikus találat esély/szint | 5/10/20/35/50 |
+| Damage (Attack Speed ágból) | `dmg2` | Damage / L3, a Attack Speed leszármazottja | +2 sebzés/szint (dupla a `dmg`-hez képest) | 10/20/40/70/100 |
+| Crit Damage | `critDamage` | Damage / L3, a Crit Chance leszármazottja | +5% kritikus sebzés-szorzó/szint | 10/20/40/70/100 |
+| Projectile Count | `projectileCount` | Damage / L4, a `dmg2` (1.) leszármazottja | +1 lövedék/lövés (mind ugyanarra a célpontra csapódik be) — **csak 3 szint**, szándékosan drága | 500/1500/4000 |
+| Attack Speed II | `fireRate2` | Damage / L4, a `dmg2` (2.) leszármazottja | +5% tűzgyorsaság/szint (ugyanaz a formula, mint `fireRate`, összeadódik vele) | 15/30/60/105/150 |
+| Crit Chance II | `critChance2` | Damage / L4, a `critDamage` (1.) leszármazottja | +1% kritikus találat esély/szint (összeadódik a `critChance`-szel) | 5/10/20/35/50 |
+| Fire Twice Chance | `fireTwiceChance` | Damage / L4, a `critDamage` (2.) leszármazottja | +2% esély, hogy a normál lövés UTÁN AZONNAL (cooldown kihagyásával) még egyszer tüzeljen — **csak 3 szint**, szándékosan drága | 400/1200/3200 |
 | Health | `hp` | Defense / L1 | +2 kezdő élet | 5/10/20/35/50 |
 | Gold | `currency` | Gold / L1 | +10% szerzett arany (szorzó) | 50/150/300/500/1000 |
 | Splash Tower | `unlockSplash` | Towers / L2 | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
 | Sniper Tower | `unlockSniper` | Towers / L3 | Egyszeri: feloldja a Sniper Tower típust | 400 |
 
-A maradék ~38 node **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve. Towers ág L1 node-ja is placeholder (nincs egyértelmű "egy stat" ötlet rá még).
+A Damage ág fája: `dmg` (L1) → **{`fireRate`, `critChance`}** (L2, kettéágazik) → **{`dmg2` a fireRate-ből, `critDamage` a critChance-ből}** (L3, egyenesen tovább) → **{`projectileCount`+`fireRate2` a dmg2-ből, `critChance2`+`fireTwiceChance` a critDamage-ből}** (L4, mindkettő újra kettéágazik). A `critChance`/`critChance2`/`critDamage` egy ÚJ mechanikát vezet be (korábban nem volt kritikus találat a játékban) — a tényleges harci logika (`Tower.FireAt`) sorsolja a kritikus találatot és az extra lövedékeket/lövést, lásd "Tornyok" MEGJEGYZÉS lent.
 
-**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál). Az egyszeri unlock node-ok és a `towers` node `MainMenu.MaxLevelFor()` szerint saját maximumon maxolnak ki (1, illetve 10) — a többi node 5-nél.
+A maradék node (Damage ág L5-L6, a másik 3 ág L2-L6-ja, Towers ág L1 és L4-L6-ja) **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve.
+
+**Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál). Az egyszeri unlock node-ok `MainMenu.MaxLevelFor()` szerint 1-nél, a `towers` 10-nél, a `projectileCount`/`fireTwiceChance` 3-nál, a többi node 5-nél maxol ki.
 
 **Eszköz/képesség ág**: egyelőre nincs kijelölt hely rá — a Towers/Special ág placeholder rétegei (L4-L6) jó jelöltek lehetnek, ha eldől a tartalom.
 
@@ -122,6 +131,11 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 **Torony-feloldás**: a torony TÍPUSOK a **skill fából nyílnak** (`unlockSplash`/`unlockSniper` node, lásd "Skill fa"), nem a pálya-progressztől függenek — egy Splash Tower akár Level 1-en is megvehető/használható, ha van rá arany, nem kell előbb Level 2-t elérni. Egyszer megvéve **globálisan, minden pályán** elérhető marad. `LevelBuild.TowerUnlocks` (kód, `(ScenePath, RequiredSkillNodeId)` párok) tükrözi ezt.
 
 **Vizuál**: mindhárom toronynak saját sprite-ja van (Kenney Tower Defense Top-Down pack, `Assets/Sprites/{tower_basic,splash_tower,sniper_tower}.png` — más-más tile ugyanabból a csomagból, nem csak színezett verzió), a Sniper Tower emellett kék-szürke tinttel (`Sprite2D.Modulate`, közvetlenül a `.tscn`-ben) is el van tolva a Rocket Tower vöröses árnyalatától, hogy a torony-paletta gombjain és a pályán is egyértelműen megkülönböztethetők legyenek.
+
+**Harci mechanikák a Damage skill ágból** (`Tower.cs`, minden toronyra globálisan hat, akárcsak a `dmg`/`fireRate`):
+- **Kritikus találat**: minden lövésnél `critChance`+`critChance2` együttes esély (1%/szint mindkettő, összeadva) a `critDamage` szorzóval (+5%/szint) megnövelt sebzésre.
+- **Extra lövedék** (`projectileCount`): +1 lövedék/szint, mindegyik UGYANARRA a célpontra csapódik be (a torony egyetlen célpontot fókuszál, lásd "Nehézségi alapszabály") — gyakorlatilag sokszorozza a kifejtett sebzést az aktuális célponton.
+- **Dupla lövés esély** (`fireTwiceChance`): +2%/szint esély, hogy a normál lövés UTÁN a torony AZONNAL (cooldown kihagyásával) még egyszer tüzeljen — a második lövés is újra sorsolja a kritikus találatot és az extra lövedékeket.
 
 ## Ellenségek
 

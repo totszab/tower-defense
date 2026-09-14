@@ -10,11 +10,10 @@ namespace TowerDefense.MainMenu;
 // Skill fa v2: hub + 4 fő ág (balra=Damage, fel=Defense, jobbra=Gold,
 // le=Towers/Special), mindegyik 6 rétegen át elágazva (lásd BuildSkillTreeLayout).
 // A legtöbb generált node egyelőre PLACEHOLDER (nincs tartalma, csak a forma
-// látszik) — csak 6 node valódi/vásárolható, ugyanaz a 6 stat, ami korábban
-// is megvolt, csak új pozícióban: dmg (Damage/L1), fireRate (Damage/L2),
-// hp (Defense/L1), currency (Gold/L1), unlockSplash (Towers/L2), unlockSniper
-// (Towers/L3). A csoportonkénti tartalom-feltöltés (mi legyen a többi node,
-// milyen áron) külön kör, lásd GAMEPLAY.md "Skill fa".
+// látszik) — a Damage ág L1-L4 rétege és a Towers ág L1-L3 rétege van
+// feltöltve (lásd SkillRealNodeIds), a többi ág/mélyebb réteg egyelőre üres.
+// A csoportonkénti tartalom-feltöltés (mi legyen a többi node, milyen áron)
+// külön kör, lásd GAMEPLAY.md "Skill fa".
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
@@ -99,6 +98,14 @@ public partial class MainMenu : Node2D
     private static readonly int[] UnlockSplashCosts = { 150 };
     private static readonly int[] UnlockSniperCosts = { 400 };
 
+    // Damage ág, L2-L4 tartalma (lásd Tower.cs a tényleges harci hatásért).
+    private static readonly int[] CritChanceCosts = DmgHpCosts; // ugyanaz az 5-szintes görbe, mindkét crit chance node-nak
+    private static readonly int[] CritDamageCosts = { 10, 20, 40, 70, 100 }; // L3, mélyebben van, ezért drágább az alapgörbénél
+    private static readonly int[] Dmg2Costs = { 10, 20, 40, 70, 100 }; // L3, dupla hatás/szint (+2 vs +1), ezért dupla ár
+    private static readonly int[] FireRate2Costs = { 15, 30, 60, 105, 150 }; // L4, még mélyebben
+    private static readonly int[] ProjectileCountCosts = { 500, 1500, 4000 }; // csak 3 szint, szándékosan drága/exponenciális
+    private static readonly int[] FireTwiceChanceCosts = { 400, 1200, 3200 }; // csak 3 szint, szintén drága
+
     // Kézzel karbantartott lista — nincs központi "minden ellenség" registry,
     // amikor új ellenségtípus készül, ide is fel kell venni.
     private static readonly string[] CodexEnemyPaths =
@@ -125,19 +132,32 @@ public partial class MainMenu : Node2D
         "res://Data/Enemies/magenta_slime_boss.tres",
     };
 
-    // Melyik (ág, réteg, "oldal") generált node kap valódi id-t. L1-en csak 1
-    // node van ágankánt (a "Spin" mező ilyenkor irreleváns, 0-t kap). L2-től
-    // már 2 node van egy szülőnél (lásd BuildSkillBranch) — ezért a Spin
-    // (+1/-1) különbözteti meg, MELYIK oldali node-ról van szó, hogy a
-    // dictionary egyértelműen egyetlen node-ra mutasson, ne kettőre.
-    private static readonly Dictionary<(SkillBranch Branch, int Layer, int Spin), string> SkillRealNodeIds = new()
+    // Melyik (ág, réteg, "útvonal") generált node kap valódi id-t. Az útvonal
+    // az elágazásoknál (páros rétegek) meghozott "1" vagy "2" választások
+    // sorozata a hub-tól — csak EZ különbözteti meg egyértelműen az összes
+    // node-ot, mert egy sima Spin (+1/-1) ÚJRA indul minden elágazásnál, tehát
+    // L4-en pl. 4 különböző node is "+1"-nek számítana Spin-nel, útvonallal
+    // viszont "11"/"12"/"21"/"22" — mind egyedi. L1-en nincs elágazás még,
+    // ott az útvonal üres string.
+    private static readonly Dictionary<(SkillBranch Branch, int Layer, string Path), string> SkillRealNodeIds = new()
     {
-        [(SkillBranch.Damage, 1, 0)] = "dmg",
-        [(SkillBranch.Damage, 2, 1)] = "fireRate",
-        [(SkillBranch.Defense, 1, 0)] = "hp",
-        [(SkillBranch.Gold, 1, 0)] = "currency",
-        [(SkillBranch.Towers, 2, 1)] = "unlockSplash",
-        [(SkillBranch.Towers, 3, 1)] = "unlockSniper",
+        // Damage ág: 1(hub)->dmg, 2.1->fireRate, 2.2->critChance,
+        // 3 (mindkettő öröklődik az elágazás nélküli rétegen)->dmg2/critDamage,
+        // 4.11->projectileCount, 4.12->fireRate2, 4.21->critChance2, 4.22->fireTwiceChance.
+        [(SkillBranch.Damage, 1, "")] = "dmg",
+        [(SkillBranch.Damage, 2, "1")] = "fireRate",
+        [(SkillBranch.Damage, 2, "2")] = "critChance",
+        [(SkillBranch.Damage, 3, "1")] = "dmg2",
+        [(SkillBranch.Damage, 3, "2")] = "critDamage",
+        [(SkillBranch.Damage, 4, "11")] = "projectileCount",
+        [(SkillBranch.Damage, 4, "12")] = "fireRate2",
+        [(SkillBranch.Damage, 4, "21")] = "critChance2",
+        [(SkillBranch.Damage, 4, "22")] = "fireTwiceChance",
+
+        [(SkillBranch.Defense, 1, "")] = "hp",
+        [(SkillBranch.Gold, 1, "")] = "currency",
+        [(SkillBranch.Towers, 2, "1")] = "unlockSplash",
+        [(SkillBranch.Towers, 3, "1")] = "unlockSniper",
     };
 
     private readonly List<(string Id, Vector2 Pos, SkillBranch Branch)> _skillNodes = new();
@@ -153,6 +173,13 @@ public partial class MainMenu : Node2D
         ["fireRate"] = "+5% attack speed",
         ["unlockSplash"] = "Unlocks the Splash Tower (area damage)",
         ["unlockSniper"] = "Unlocks the Sniper Tower (long range, high damage)",
+        ["critChance"] = "+1% crit chance",
+        ["critChance2"] = "+1% crit chance",
+        ["critDamage"] = "+5% crit damage",
+        ["dmg2"] = "+2 damage",
+        ["fireRate2"] = "+5% attack speed",
+        ["projectileCount"] = "+1 projectile per shot",
+        ["fireTwiceChance"] = "+2% chance to fire an extra shot",
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -246,15 +273,21 @@ public partial class MainMenu : Node2D
         {
             var layer1Pos = SkillHubPosition + dir * SkillSegment;
             _skillEdges.Add((SkillHubPosition, layer1Pos, branch));
-            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1, 0)), layer1Pos, branch));
+            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1, "")), layer1Pos, branch));
 
             // A kezdő spin értéke lényegtelen: a 2. réteg PÁROS, tehát úgyis
             // kettéágazik, a bejövő spin-t figyelmen kívül hagyja.
-            BuildSkillBranch(layer1Pos, dir, 2, 0, branch);
+            BuildSkillBranch(layer1Pos, dir, 2, 0, "", branch);
         }
     }
 
-    private void BuildSkillBranch(Vector2 parentPos, Vector2 dir, int layer, int spin, SkillBranch branch)
+    // `spin` a forgatás irányát viszi tovább (kanyarodásnál kell). `path` az
+    // elágazásoknál meghozott "1"/"2" választások sorozata a hub-tól — ez
+    // adja a SkillRealNodeIds-ben használt EGYEDI azonosítót, mert egy sima
+    // spin (+1/-1) minden elágazásnál újraindulna (pl. L4-en 4 különböző
+    // node is "+1"-nek számítana vele), az útvonal viszont ("11","12","21","22")
+    // mindegyiket egyedivé teszi.
+    private void BuildSkillBranch(Vector2 parentPos, Vector2 dir, int layer, int spin, string path, SkillBranch branch)
     {
         if (layer > 6) return;
 
@@ -262,24 +295,25 @@ public partial class MainMenu : Node2D
         {
             // Páros réteg: a szülőből KETTÉ ágazik — ez a réteg maga adja a
             // 2 node-ot (nem a rákövetkező), ±SkillTreeAngleStep fokban.
-            foreach (var sign in new[] { 1, -1 })
+            foreach (var (sign, tag) in new (int Sign, string Tag)[] { (1, "1"), (-1, "2") })
             {
                 var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * sign));
                 var pos = parentPos + d * SkillSegment;
+                var childPath = path + tag;
                 _skillEdges.Add((parentPos, pos, branch));
-                _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, sign)), pos, branch));
-                BuildSkillBranch(pos, d, layer + 1, sign, branch);
+                _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, childPath)), pos, branch));
+                BuildSkillBranch(pos, d, layer + 1, sign, childPath, branch);
             }
         }
         else
         {
             // Páratlan réteg: egyenesen tovább, kicsit "kanyarodva" — a
-            // szülőtől örökölt spin-nel (nem hoz létre új elágazást).
+            // szülőtől örökölt spin-nel/útvonallal (nem hoz létre új elágazást).
             var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * spin));
             var pos = parentPos + d * SkillSegment;
             _skillEdges.Add((parentPos, pos, branch));
-            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, spin)), pos, branch));
-            BuildSkillBranch(pos, d, layer + 1, spin, branch);
+            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, path)), pos, branch));
+            BuildSkillBranch(pos, d, layer + 1, spin, path, branch);
         }
     }
 
@@ -461,15 +495,24 @@ public partial class MainMenu : Node2D
         "fireRate" => FireRateCosts,
         "unlockSplash" => UnlockSplashCosts,
         "unlockSniper" => UnlockSniperCosts,
+        "critChance" or "critChance2" => CritChanceCosts,
+        "critDamage" => CritDamageCosts,
+        "dmg2" => Dmg2Costs,
+        "fireRate2" => FireRate2Costs,
+        "projectileCount" => ProjectileCountCosts,
+        "fireTwiceChance" => FireTwiceChanceCosts,
         _ => CurrencyCosts,
     };
 
     // A legtöbb node 0-5 szintes, de az egyszeri torony-unlockok csak 0 vagy 1
-    // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök).
+    // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök),
+    // a projectileCount/fireTwiceChance pedig szándékosan csak 3 szintes
+    // (drága, exponenciális node-ok, lásd Costs tömbjeik).
     private static int MaxLevelFor(string nodeId) => nodeId switch
     {
         "unlockSplash" or "unlockSniper" => 1,
         "towers" => MaxTowersLevel,
+        "projectileCount" or "fireTwiceChance" => 3,
         _ => MaxLevel,
     };
 
@@ -482,6 +525,12 @@ public partial class MainMenu : Node2D
         "dmg" => $"+{level} damage",
         "fireRate" => $"+{level * 5}% attack speed",
         "unlockSplash" or "unlockSniper" => level >= 1 ? "Unlocked" : "Locked",
+        "critChance" or "critChance2" => $"+{level}% crit chance",
+        "critDamage" => $"+{level * 5}% crit damage",
+        "dmg2" => $"+{level * 2} damage",
+        "fireRate2" => $"+{level * 5}% attack speed",
+        "projectileCount" => $"+{level} projectiles",
+        "fireTwiceChance" => $"+{level * 2}% fire twice",
         _ => "",
     };
 
