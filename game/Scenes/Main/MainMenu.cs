@@ -14,10 +14,19 @@ public partial class MainMenu : Node2D
     private const int MaxLevel = 5;
     private const float NodeDiameter = 110f;
 
-    // Level 1 mind a 10 körének van tartalma (lásd GAMEPLAY.md "Pályák").
+    // Minden pálya mind a 10 körének van tartalma (lásd GAMEPLAY.md "Pályák").
     // (LevelBuild.MaxPlayableRound ugyanezt a tényt tükrözi, szándékosan duplikált.)
-    private const int PlayableRounds = 10;
     private const int TotalRoundsPerLevel = 10;
+
+    // Sorrend, amiben a pályák egymást feloldják (lásd LevelBuild.LevelOrder —
+    // szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
+    private static readonly string[] LevelIds = { "Level1", "Level2", "Level3" };
+    private static readonly Dictionary<string, string> LevelDisplayNames = new()
+    {
+        ["Level1"] = "Level 1",
+        ["Level2"] = "Level 2",
+        ["Level3"] = "Level 3",
+    };
 
     private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
     private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
@@ -42,6 +51,18 @@ public partial class MainMenu : Node2D
         "res://Data/Enemies/blue_triangle.tres",
         "res://Data/Enemies/purple_triangle.tres",
         "res://Data/Enemies/purple_slime_boss.tres",
+        "res://Data/Enemies/red_slime.tres",
+        "res://Data/Enemies/orange_slime.tres",
+        "res://Data/Enemies/red_triangle.tres",
+        "res://Data/Enemies/orange_triangle.tres",
+        "res://Data/Enemies/red_slime_boss.tres",
+        "res://Data/Enemies/orange_slime_boss.tres",
+        "res://Data/Enemies/cyan_slime.tres",
+        "res://Data/Enemies/magenta_slime.tres",
+        "res://Data/Enemies/cyan_triangle.tres",
+        "res://Data/Enemies/magenta_triangle.tres",
+        "res://Data/Enemies/cyan_slime_boss.tres",
+        "res://Data/Enemies/magenta_slime_boss.tres",
     };
 
     private static readonly Dictionary<string, Vector2> NodePositions = new()
@@ -65,11 +86,14 @@ public partial class MainMenu : Node2D
 
     private readonly Dictionary<string, Button> _buttons = new();
     private readonly List<Button> _roundButtons = new();
+    private readonly Dictionary<string, Button> _levelTabButtons = new();
     private PlayerProgress _progress;
     private Label _goldLabel;
     private CanvasLayer _canvasLayer;
     private Panel _codexPopup;
     private Panel _levelSelectPopup;
+    private GridContainer _roundGrid;
+    private string _selectedLevelId;
 
     public override void _Ready()
     {
@@ -221,13 +245,9 @@ public partial class MainMenu : Node2D
     {
         _goldLabel.Text = $"Gold: {_progress.MetaCurrency}";
 
-        // Csak a ténylegesen tartalommal rendelkező körök disabled-állapota
-        // változhat a progressz szerint — a PlayableRounds utániak véglegesen
-        // le vannak tiltva (nincs mit betölteni), ne írjuk felül.
-        for (var i = 0; i < PlayableRounds; i++)
-        {
-            _roundButtons[i].Disabled = i + 1 > _progress.HighestUnlockedRound;
-        }
+        // Újraépíti a szint-fülek és a kör-gombok disabled-állapotát a jelenlegi
+        // progressz szerint (pl. Reset Progress vagy egy kör teljesítése után).
+        SelectLevel(_progress.IsLevelUnlocked(_selectedLevelId) ? _selectedLevelId : "Level1");
 
         foreach (var entry in _buttons)
         {
@@ -249,33 +269,57 @@ public partial class MainMenu : Node2D
         GetNode<Button>("CanvasLayer/PlayButton").Pressed += () => _levelSelectPopup.Visible = true;
         GetNode<Button>("CanvasLayer/LevelSelectPopup/CloseButton").Pressed += () => _levelSelectPopup.Visible = false;
 
-        // Csak Level 1 létezik — a "Level 1" gomb egyelőre dísz (mindig az
-        // egyetlen, automatikusan kiválasztott opciót mutatja), de előkészíti
-        // a UI-t arra, ha majd több pálya lesz (GAMEPLAY.md "Pályák és körök").
-        var roundGrid = GetNode<GridContainer>("CanvasLayer/LevelSelectPopup/RoundGrid");
+        _roundGrid = GetNode<GridContainer>("CanvasLayer/LevelSelectPopup/RoundGrid");
+        var levelTabs = GetNode<HBoxContainer>("CanvasLayer/LevelSelectPopup/LevelTabs");
+        foreach (var levelId in LevelIds)
+        {
+            var button = new Button { CustomMinimumSize = new Vector2(140, 37), Text = LevelDisplayNames[levelId] };
+            button.Pressed += () => SelectLevel(levelId);
+            levelTabs.AddChild(button);
+            _levelTabButtons[levelId] = button;
+        }
+
+        // Automatikusan a legutóbb játszott pálya kerüljön kiválasztásra — hacsak
+        // az közben (pl. Reset Progress után) nem vált fel nem oldottá.
+        SelectLevel(_progress.IsLevelUnlocked(_progress.LastPlayedLevelId) ? _progress.LastPlayedLevelId : "Level1");
+    }
+
+    private void SelectLevel(string levelId)
+    {
+        if (!_progress.IsLevelUnlocked(levelId)) return;
+        _selectedLevelId = levelId;
+
+        foreach (var entry in _levelTabButtons)
+        {
+            var unlocked = _progress.IsLevelUnlocked(entry.Key);
+            // A jelenleg kiválasztott fület sem lehet újra lenyomni — ez jelzi
+            // vizuálisan is, melyik pálya köreit látjuk lent.
+            entry.Value.Disabled = !unlocked || entry.Key == levelId;
+            entry.Value.TooltipText = unlocked ? "" : "Locked — clear the previous level first";
+        }
+
+        foreach (var child in _roundGrid.GetChildren())
+        {
+            child.QueueFree();
+        }
+        _roundButtons.Clear();
+
         for (var round = 1; round <= TotalRoundsPerLevel; round++)
         {
             var roundNumber = round;
             var button = new Button { CustomMinimumSize = new Vector2(130, 60), Text = $"Round {round}" };
-
-            if (round > PlayableRounds)
-            {
-                button.Disabled = true;
-                button.TooltipText = "Coming soon";
-            }
-            else
-            {
-                button.Disabled = round > _progress.HighestUnlockedRound;
-            }
-
-            button.Pressed += () => OnRoundPressed(roundNumber);
-            roundGrid.AddChild(button);
+            button.Disabled = round > _progress.GetHighestUnlockedRound(levelId);
+            button.Pressed += () => OnRoundPressed(levelId, roundNumber);
+            _roundGrid.AddChild(button);
             _roundButtons.Add(button);
         }
     }
 
-    private void OnRoundPressed(int roundNumber)
+    private void OnRoundPressed(string levelId, int roundNumber)
     {
+        _progress.LastPlayedLevelId = levelId;
+        new LocalFileSaveProvider().Save(_progress);
+        LevelBuild.RequestedLevelId = levelId;
         LevelBuild.RequestedRoundNumber = roundNumber;
         GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }

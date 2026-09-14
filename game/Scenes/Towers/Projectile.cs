@@ -12,6 +12,9 @@ public partial class Projectile : Node2D
     public float Speed { get; set; } = 400f;
     public string TowerName { get; set; } = "Tower";
 
+    // Tiles (see GridConstants.TileSize). 0 = nincs area sebzés.
+    public float SplashRadius { get; set; } = 0f;
+
     public override void _Ready()
     {
         QueueRedraw();
@@ -31,14 +34,46 @@ public partial class Projectile : Node2D
         if (toTarget.Length() <= step)
         {
             var hitPosition = Target.GlobalPosition;
-            Target.TakeDamage(Damage);
-            DamageTracker.Report(TowerName, Damage);
-            DamageNumberSpawner.Spawn(this, hitPosition, Damage);
+
+            if (SplashRadius > 0f)
+            {
+                HitSplash(hitPosition);
+            }
+            else
+            {
+                Target.TakeDamage(Damage);
+                DamageTracker.Report(TowerName, Damage);
+                DamageNumberSpawner.Spawn(this, hitPosition, Damage);
+            }
+
             QueueFree();
             return;
         }
 
         GlobalPosition += toTarget.Normalized() * step;
+    }
+
+    // Mindenkit sebez a becsapódási pont körüli SplashRadius-on belül (a
+    // célpontot is), nem csak a lezárt Target-et — az "Enemies" konténer
+    // gyerekei közül szűrünk, mert nincs Area2D-alapú overlap-lekérdezés
+    // idekötve. Az Enemy.IsDead (lásd Enemy.cs) kiszűri, ha egy szomszédos
+    // ellenség UGYANEBBEN a frame-ben már meghalt egy másik találattól —
+    // enélkül a TakeDamage() saját _dead védelme ezt már csendben elnyelné,
+    // de itt korábban kiszűrve elkerüljük a felesleges Report/Spawn hívást is.
+    private void HitSplash(Vector2 hitPosition)
+    {
+        var splashRadiusPx = SplashRadius * GridConstants.TileSize;
+        var enemies = GetTree().CurrentScene.GetNode<Node2D>("Enemies");
+
+        foreach (var child in enemies.GetChildren())
+        {
+            if (child is not Enemy enemy || !IsInstanceValid(enemy) || enemy.IsDead) continue;
+            if (enemy.GlobalPosition.DistanceTo(hitPosition) > splashRadiusPx) continue;
+
+            enemy.TakeDamage(Damage);
+            DamageTracker.Report(TowerName, Damage);
+            DamageNumberSpawner.Spawn(this, enemy.GlobalPosition, Damage);
+        }
     }
 
     public override void _Draw()

@@ -87,10 +87,11 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 - `PlayerProgress` (a mentett `SaveData` gyökér-objektuma) — **implementált mezők**:
   - `MetaCurrency` (int) — elkölthető skill-fa arany egyenleg
   - `SkillLevels` (Dictionary<string, int>) — node id → szint (0-5), lásd "Skill fa adatmodell"
-  - `HighestUnlockedRound` (int, default 1) — meddig jutott a játékos **Level 1-en belül**. Ez az eredetileg tervezett `HighestUnlockedLevelIndex` egyszerűsített, egy-pályás verziója — nincs "melyik pálya" dimenzió, mert csak Level 1 létezik. Ha 2. pálya készül, ez `Dictionary<levelId, int>`-re bővül.
-  - **Még nem implementált** (eredeti terv, ROADMAP Fázis 4-hez kötve):
-    - `LevelPresets` (Dictionary<levelId, PresetData>) — pályánként egy mentett torony-elrendezés
-    - Globális beállítások (hangerő stb.)
+  - `HighestUnlockedRoundByLevel` (Dictionary<levelId, int>) — pályánként (pl. `"Level1"`) meddig jutott a játékos; hiányzó kulcs = az a pálya még nincs feloldva (`PlayerProgress.IsLevelUnlocked`)
+  - `PresetByLevel` (Dictionary<levelId, List<PresetTowerEntry>>) — pályánként egy mentett torony-elrendezés
+  - `LastPlayedLevelId` (string, default `"Level1"`) — a Főmenü szint-választója ezt nyitja meg alapból
+  - **Migráció**: a fenti pálya-kulcsos map-ek előtt lapos `HighestUnlockedRound`/`Level1Preset` mezők voltak (egy-pályás verzió, amikor csak Level 1 létezett) — `LocalFileSaveProvider.Load()` felismeri ezeket a régi JSON kulcsokat és átmásolja az új, `"Level1"`-kulcsos bejegyzésekbe (plusz Level 1 teljes teljesítése esetén Level 2-t is feloldja), hogy egy meglévő mentés ne veszítsen haladást
+  - **Még nem implementált**: globális beállítások (hangerő stb.)
 - Amit **szándékosan NEM** mentünk state-ként: legjobb eredmény/statisztika pályánként — a statisztika popup egy adott futás lezárása, nem perzisztens ranglista (nincs ilyen elvárás egyelőre)
 
 ## Hullám / kör adatmodell
@@ -100,8 +101,9 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 - `WaveData : Resource` — egy kör teljes menetrendje: `SpawnInterval` (mp/tick) és `Steps (SpawnStepData[])`. `TotalEnemyCount()` segédmetódus összegzi a `Steps[].Count`-okat.
 - `SpawnStepData : Resource` — egy tick: `Enemy (EnemyData)` + `Count (int)` — ennyi darab spawnol egyszerre.
 - Egyenletes hullám, csoportos spawn, kevert sorrend és záró boss mind ugyanezzel a Step-lista modellel írható le (lásd GAMEPLAY.md konkrét példák).
-- Fájlok: `Data/Waves/Level1/Round{N}.tres` — a `SpawnStepData` példányok a WaveData fájlján BELÜL, `[sub_resource]`-ként vannak definiálva (nem külön fájlonként), mert egy körön belül gyakran ismétlődik ugyanaz a Step.
-- **Kör-szám átadása a scene-nek**: mivel `ChangeSceneToFile` nem tud paramétert átadni, a `LevelBuild.RequestedRoundNumber` egy **statikus mező**, amit a `MainMenu` állít be a scene-váltás előtt, a `LevelBuild._Ready()` pedig ebből tölti be a megfelelő `Round{N}.tres`-t. Ez egy pragmatikus, egy-scene-tipikus megoldás — ha több pálya lesz, érdemesebb egy `LevelSelection` statikus/autoload struktúrára váltani (pálya ID + kör szám pár).
+- Fájlok: `Data/Waves/<LevelId>/Round{N}.tres` (pl. `Data/Waves/Level2/Round5.tres`) — a `SpawnStepData` példányok a WaveData fájlján BELÜL, `[sub_resource]`-ként vannak definiálva (nem külön fájlonként), mert egy körön belül gyakran ismétlődik ugyanaz a Step.
+- **Pálya + kör átadása a scene-nek**: mivel `ChangeSceneToFile` nem tud paramétert átadni, `LevelBuild.RequestedLevelId` és `RequestedRoundNumber` **statikus mezők**, amiket a `MainMenu` állít be a scene-váltás előtt, a `LevelBuild._Ready()` pedig ebből tölti be a megfelelő `Data/Waves/<RequestedLevelId>/Round{RequestedRoundNumber}.tres`-t. Egyetlen `Level01Test.tscn` scene-t tölt be újra mindhárom pálya — csak az adatforrás (wave-mappa) és a torony-feloldottság (`_availableTowers`, lásd lent) tér el pályánként.
+- **Torony-választék pályánként**: nincs többé `[Export] PackedScene[] AvailableTowers` a scene-en — `LevelBuild.TowerUnlocks` egy kézzel karbantartott `(ScenePath, UnlockLevelId)` lista, és `_Ready()` ebből építi fel a futásidejű `_availableTowers` listát a `PlayerProgress.IsLevelUnlocked()` alapján. A torony típusok **globálisan** elérhetők a feloldásuk után, minden pályán, nem csak azon, ahol debütáltak.
 - `EnemyData` bővült placeholder-tier vizuális mezőkkel, hogy több típus (pl. Blue Slime, mini/final boss) ugyanazt a sprite-ot használhassa art nélkül is megkülönböztethetően: `DisplayName`, `Tint` (Color, Sprite2D.Modulate-ra alkalmazva), `SpriteScale`, `HitRadius` (a CollisionShape2D shape-jét **duplikálni kell** kódból, mielőtt a Radius-t módosítjuk — a `.tscn`-ben definiált shape resource meg van osztva minden `Enemy.tscn` példány között).
 
 ## Kódolási konvenciók
@@ -112,7 +114,6 @@ Godot-ban a natív mintát követjük, nem építünk saját event bus-t rá fel
 
 ## Nyitott kérdések / TBD
 
-- Level 1 6-9. körének tartalma és a final boss (10. kör) statjai
-- 3-4 torony típus (jelenleg csak 1 létezik) — a `fireRate` skill node torony-specifikussága ezért ma de facto globális
+- 4. torony típus (lassítás/kontroll szerepkör) — jelenleg 3 van (Rocket/Splash/Sniper); a `dmg`/`fireRate` skill node-ok torony-specifikussága emiatt ma is de facto globális (minden toronyra egyformán hat)
 - "Eszköz/képesség" `EffectType` pontos viselkedése (harc közbeni aktiválás mechanikája) — GAMEPLAY.md-ben is TBD
 - Build/CI (Steam feltöltéskor releváns lesz, most nem blocker)

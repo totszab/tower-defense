@@ -74,6 +74,7 @@ public partial class Tower : Node2D
         projectile.Target = target;
         projectile.Damage = damage;
         projectile.TowerName = Data.DisplayName;
+        projectile.SplashRadius = Data.SplashRadius;
     }
 
     private void OnAreaEntered(Area2D area)

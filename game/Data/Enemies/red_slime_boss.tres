@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://Scripts/Data/EnemyData.cs" id="1"]
+[ext_resource type="Texture2D" path="res://Assets/Sprites/enemy_basic.png" id="2"]
+
+[resource]
+script = ExtResource("1")
+DisplayName = "Red Slime (Mini Boss)"
+Hp = 250.0
+Dmg = 15.0
+Value = 35
+Speed = 1.0
+Sprite = ExtResource("2")
+Tint = Color(1.9, 0.25, 0.2, 1)
+SpriteScale = 2.2
+HitRadius = 55.0

@@ -84,32 +84,24 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 **Fontos, rögzített elv**: a globális stat ág (élet, sebzés, torony slot stb.) kiemelt prioritás a skill fa tervezésénél — ez az az ág, ami minden futásra érezhető hatással van, nem csak egy-egy toronyra.
 
 **Induló állapot (Fázis 2 bootstrap, "üres" skill fa)**: a játékos 0 meta-arannyal indul, semmi nincs megvásárolva a fán. A skill fától **függetlenül**, alapból (baseline, nem unlock-kötött) rendelkezésre áll:
-- 1 torony típus (lásd lent)
+- 1 torony típus (Rocket Tower, lásd lent) — a másik 2 pálya-feloldáshoz kötött (lásd "Torony-feloldás")
 - 1 torony slot (egyszerre 1 lerakott torony engedélyezett)
 
-A skill fa node-jai *ezen a baseline-on felül* adnak további torony típusokat és slot-okat — tehát a fa nem "0-ról épít fel mindent", hanem a minimális játszható állapotot bővíti.
+A skill fa node-jai *ezen a baseline-on felül* adnak további torony **slot**-okat és damage/fire rate szintet — tehát a fa nem "0-ról épít fel mindent", hanem a minimális játszható állapotot bővíti. A torony **típusok** (lásd lent) nem a skill fától, hanem a pálya-progressztől függenek.
 
 ## Tornyok
 
-**Fázis 2 bootstrap — az első torony** (ezzel lesz először tesztelhető a teljes kör):
+Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`, `FireRate`, és opcionálisan `SplashRadius` (0 = nincs terület-sebzés, a lövedék csak a célpontot sebzi). Nincs `Cost` mező, mert a lerakás ingyenes — helyette a skill fában van ár a torony **slot**-okhoz és a globális damage/fire rate szintekhez, amik MINDEN torony típusra egyformán hatnak.
 
-| Mező | Érték |
-|---|---|
-| Damage | 1 |
-| FireRate (sebesség — **hányszor lő másodpercenként**) | 1 |
-| Range | 3 (tile) — lásd TECHNICAL.md "Pálya rács" a tile-alapú egységről |
-| Sprite | Placeholder (egyszerű geometrikus forma, pl. négyzet) |
+| Torony | Szerepkör | Damage | FireRate | Range | SplashRadius | Feloldás |
+|---|---|---|---|---|---|---|
+| Rocket Tower | Kiegyensúlyozott alap lövő, egyetlen célpontra | 1 | 1/mp | 3 tile | — | Alapból elérhető |
+| Splash Tower | Terület sebzés — a becsapódási pont körül MINDEN ellenséget sebez, jó áradatok ellen | 1 | 0,7/mp | 2,5 tile | 1,5 tile | Level 2 elérésekor |
+| Sniper Tower | Nagy sebzés, lassú tűzgyorsaság, hosszú lőtáv — jó bossok ellen | 4 | 0,4/mp | 5 tile | — | Level 3 elérésekor |
 
-**Célkép (Fázis 3-ra)**: **3-4 torony típus**, mindegyik egyértelműen más szerepkörrel — a fenti az "Alap lövő" szerepkör első, minimál változata.
+**Torony-feloldás**: a torony típusok **globálisan, minden pályán** elérhetők, amint a hozzájuk tartozó pálya feloldódik (nem csak azon, ahol debütáltak) — pl. a Splash Tower Level 2 elérésekor Level 1-en is használható lesz. `LevelBuild.TowerUnlocks` (kód) és `MainMenu.LevelIds`/`LevelOrder` tükrözi ugyanezt a sorrendet.
 
-| Torony | Szerepkör | TBD részletek |
-|---|---|---|
-| Alap lövő | Kiegyensúlyozott damage/range/rate (lásd bootstrap fent) | Fázis 3: véglegesítendő számok |
-| ? | Terület sebzés (AoE) | típus, számok |
-| ? | Lassítás/kontroll | típus, számok |
-| ? | Nagy sebzés, lassú tűzgyorsaság (sniper jellegű) | típus, számok |
-
-Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`, `FireRate`. Nincs `Cost` mező, mert a lerakás ingyenes — helyette a skill fában van ár az *unlockhoz* és az *upgrade-ekhez*.
+**Placeholder-tier vizuál**: nincs egyedi art egyik új toronyhoz sem — ugyanazt a `tower_basic.png` sprite-ot **színezzük** (`Sprite2D.Modulate`, közvetlenül a `.tscn`-ben, nem `TowerData`-mezőként) a palettán és a pályán is, hogy megkülönböztethetők legyenek anélkül, hogy új assetre várnánk (ugyanaz az elv, mint az ellenségeknél lent).
 
 ## Ellenségek
 
@@ -122,26 +114,44 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 | Purple Slime | 6 | 2 | 3 | 1 tile/mp | 2 `dmg` skill-szint (15 arany, DPS 3) kell hozzá — 6-10. kör |
 | Blue Slime (Mini Boss) | 30 | 5 | 5 | 1 tile/mp | Önálló egység (nem áradat), a lőtávban töltött ~5,7 mp alatt kell megölni — 5. kör záró ellenfele |
 | Purple Slime (Final Boss) | 150 | 10 | 20 | 1 tile/mp | Kb. 27 összesített DPS kell hozzá (több torony egymást átfedő lőtávval, felturbózott dmg/tűzgyorsasággal) — 10. kör záró ellenfele |
-| Green/Blue/Purple Triangle | 2 / 4 / 6 | 1 / 1 / 2 | 1 / 2 / 3 | **2** tile/mp | Ugyanaz a HP/Dmg/Value mint a hasonló színű Slime-nál, csak dupla sebesség — egyelőre egyik körbe sincs betéve, tartalék variáns jövőbeli körökhöz |
+| Green/Blue/Purple Triangle | 2 / 4 / 6 | 1 / 1 / 2 | 1 / 2 / 3 | **2** tile/mp | Ugyanaz a HP/Dmg/Value mint a hasonló színű Slime-nál, csak dupla sebesség — Level 1-en tartalék variáns, nincs körbe téve |
+
+**Pálya-közti skálázás (miért ugranak ekkorát a Level 2/3 statok)**: mivel a skill fa **globális** (a meta-progresszió minden pályán megmarad), mire a játékos legyőzi Level 1 final bossát, már jelentős dmg/fireRate/torony-szint befektetéssel rendelkezik — egy vadonatúj Level 1-hez tervezett HP-szint triviális lenne neki. A Level 1-es görbe a `dmg` skill-szintekre épített "kaput" (1-2-3 szint, ld. fent); a Level 2/3-as görbe helyette a **torony-számra** épít (mivel a dmg 5. szinten befagy, max ~6 DPS/torony 1,25-szörös tűzgyorsasággal), tehát a magasabb HP-hoz több, egymást átfedő lőtávú toronyt kell csoportosítani ugyanarra a pálya-szakaszra — ugyanaz a taktika, mint a bossoknál.
+
+| Ellenség | HP | Dmg | Value | Speed | Pálya |
+|---|---|---|---|---|---|
+| Red Slime | 10 | 2 | 5 | 1 tile/mp | Level 2, 1-2. kör |
+| Orange Slime | 18 | 3 | 9 | 1 tile/mp | Level 2, 4-10. kör |
+| Red/Orange Triangle | 10 / 18 | 2 / 3 | 5 / 9 | 2 tile/mp | Level 2, 6. (Red) és 7. (Orange) kör |
+| Red Slime (Mini Boss) | 250 | 15 | 35 | 1 tile/mp | Level 2, 5. kör záró ellenfele |
+| Orange Slime (Final Boss) | 500 | 20 | 60 | 1 tile/mp | Level 2, 10. kör záró ellenfele |
+| Cyan Slime | 26 | 4 | 13 | 1 tile/mp | Level 3, 1-2. kör |
+| Magenta Slime | 36 | 5 | 18 | 1 tile/mp | Level 3, 4-10. kör |
+| Cyan/Magenta Triangle | 26 / 36 | 4 / 5 | 13 / 18 | 2 tile/mp | Level 3, 6. (Cyan) és 7. (Magenta) kör |
+| Cyan Slime (Mini Boss) | 900 | 30 | 100 | 1 tile/mp | Level 3, 5. kör záró ellenfele |
+| Magenta Slime (Final Boss) | 1600 | 40 | 150 | 1 tile/mp | Level 3, 10. kör záró ellenfele — a játék jelenlegi végső bossa |
 
 Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 
 **Vizuális variánsok placeholder-tier módon**: nincs egyedi art minden típushoz — a kör alakú (Slime) típusoknál ugyanazt a sprite-ot **színezzük** (`Tint`, Godot `Modulate`) és **skálázzuk** (`SpriteScale`, a hitbox-szal együtt `HitRadius`); a háromszög típusoknál (`EnemyData.Shape = Triangle`) nincs is sprite, kód-rajzolt alakzat helyettesíti (`Enemy._Draw()` a pályán, `TriangleIcon` a menükben). A mini/final boss ugyanígy csak egy nagyobbra skálázott, erősebb statú variáns — amikor lesz saját art, csak a `Sprite`/`Tint` mezőt kell cserélni, a rendszer nem változik.
 
-**Célkép (Fázis 3+)**: Level 1 mind a 10 köre kész (lásd "Pályák és körök" lent); hosszabb távon minden ellenségnek lehet saját sprite-ja a jelenlegi tint/scale/kód-rajzolt trükk helyett, és a Triangle variánsok is bekerülhetnek konkrét körökbe (gyorsabb, kevesebb HP-s "raider" hullámként).
+**Célkép (Fázis 3+)**: mind a 3 pálya (30 kör) kész (lásd "Pályák és körök" lent); hosszabb távon minden ellenségnek lehet saját sprite-ja a jelenlegi tint/scale/kód-rajzolt trükk helyett.
 
 **Terminológiai megjegyzés**: a "sebesség" szó két különböző mezőt takar attól függően, hogy toronyról vagy ellenségről van szó — toronynál `FireRate` (lövés/másodperc), ellenségnél `Speed` (tile/másodperc). A kódban és az adatmezőkben emiatt tudatosan más néven szerepelnek, hogy ne keveredjenek. Mindkét torony- és ellenség-mérték (`Range`, `Speed`) a rácsos pálya tile-egységére épül — lásd TECHNICAL.md "Pálya rács / koordináta-rendszer".
 
 ## Pályák és körök
 
-**Egy pálya = 10 kör.** Ez a korábbi "pálya = egy hullám-sorozat" elképzelés pontosítása: amit eddig "pályaként" teszteltünk (a `Level01Test` scene), az valójában **Level 1, 1. kör**.
+**Egy pálya = 10 kör.** Jelenleg 3 pálya létezik (Level 1, 2, 3), mindegyik ugyanazt a `Level01Test.tscn` scene-t tölti be újra — a scene és a `LevelBuild.cs` kód pálya-agnosztikus, csak a `LevelBuild.RequestedLevelId` (`"Level1"`/`"Level2"`/`"Level3"`) alapján tölti be a megfelelő `Data/Waves/<LevelId>/RoundN.tres` fájlt.
 
 - Minden pályának **10 köre** van, lineáris feloldási sorrenddel — egy kör sikeres teljesítése (győzelem, nem vereség/visszavonulás) feloldja a pálya következő körét
 - **Az 5. és a 10. kör végén boss van**: az 5. kör végén egy **mini boss**, a 10. kör végén egy **final boss** zárja a hullámot
-- A `PlayerProgress.HighestUnlockedRound` tárolja meddig jutott a játékos — ez egyelőre **egy-pályás egyszerűsítés** (nincs "melyik pálya" dimenzió, mert csak Level 1 létezik); ha 2. pálya is készül, ez pálya-kulcsos map-re bővül (lásd TECHNICAL.md)
-- A Főmenüben egy kör-választó sáv (`R1`..`R5` gombok, feloldottság szerint engedélyezve) indítja a választott kört
+- **A pályák is lineárisan oldódnak fel**: az N. pálya 10. körének (final boss) teljesítése nyitja meg az N+1. pályát (`LevelBuild.LevelOrder` / `MainMenu.LevelIds`) — Level 1 alapból nyitva van
+- A `PlayerProgress.HighestUnlockedRoundByLevel` (pálya-kulcsos map) tárolja pályánként meddig jutott a játékos; `PresetByLevel` ugyanígy pályánként EGY mentett torony-elrendezést. Egy hiányzó kulcs = az a pálya még nincs feloldva (`PlayerProgress.IsLevelUnlocked`)
+- A Főmenü Play gombja mögötti popupban **pálya-fülek** (Level 1/2/3, fel nem oldott pálya letiltva) választják ki, melyik pálya kör-rácsát látjuk; alapból a legutóbb játszott pálya van kiválasztva (`PlayerProgress.LastPlayedLevelId`)
 
-**Level 1 tartalmi állapota**:
+**Régi mentés migrálása**: a pálya-kulcsos map bevezetése előtt a mentés egyetlen lapos `HighestUnlockedRound`/`Level1Preset` mezőt használt. `LocalFileSaveProvider.Load()` felismeri ezeket a régi kulcsokat és átmásolja `HighestUnlockedRoundByLevel["Level1"]`/`PresetByLevel["Level1"]`-be (plusz ha Level 1 már teljesen kész volt, Level 2-t is feloldja) — enélkül egy meglévő mentés elveszítené a Level 1-es haladást.
+
+**Level 1 tartalmi állapota** (Green → Blue → Purple Slime):
 
 | Kör | Tartalom | Státusz |
 |---|---|---|
@@ -155,6 +165,36 @@ Minden ellenséghez: `HP`, `Dmg`, `Value`, `Speed`, `DisplayName`.
 | 8 | 10× (3 Purple Slime), 2 mp-enként | Kész |
 | 9 | 10× (4 Purple Slime), 2 mp-enként | Kész |
 | 10 | 10× (4 Purple Slime), majd 1 Final Boss a végén | Kész |
+
+**Level 2 tartalmi állapota** (Red → Orange Slime, ugyanaz a sablon mint Level 1):
+
+| Kör | Tartalom | Státusz |
+|---|---|---|
+| 1 | 10× Red Slime, 2 mp-enként 1 | Kész |
+| 2 | 10× (2 Red Slime), 2 mp-enként | Kész |
+| 3 | 2 Red Slime + 1 Orange Slime mintázat, 5×, összesen 10 Red + 5 Orange | Kész |
+| 4 | 10× (2 Orange Slime), 2 mp-enként | Kész |
+| 5 | 10× (3 Orange Slime), majd 1 Mini Boss (Red Slime Boss) a végén | Kész |
+| 6 | 10× (2 Red Triangle), 2 mp-enként — gyors, sebesség-próba kör | Kész |
+| 7 | Orange Slime + Orange Triangle mintázat, 6×, összesen 12 + 6 | Kész |
+| 8 | 10× (3 Orange Slime), 2 mp-enként | Kész |
+| 9 | 10× (4 Orange Slime), 2 mp-enként | Kész |
+| 10 | 10× (4 Orange Slime), majd 1 Final Boss (Orange Slime Boss) a végén | Kész |
+
+**Level 3 tartalmi állapota** (Cyan → Magenta Slime, ugyanaz a sablon):
+
+| Kör | Tartalom | Státusz |
+|---|---|---|
+| 1 | 10× Cyan Slime, 2 mp-enként 1 | Kész |
+| 2 | 10× (2 Cyan Slime), 2 mp-enként | Kész |
+| 3 | 2 Cyan Slime + 1 Magenta Slime mintázat, 5×, összesen 10 Cyan + 5 Magenta | Kész |
+| 4 | 10× (2 Magenta Slime), 2 mp-enként | Kész |
+| 5 | 10× (3 Magenta Slime), majd 1 Mini Boss (Cyan Slime Boss) a végén | Kész |
+| 6 | 10× (2 Cyan Triangle), 2 mp-enként — gyors, sebesség-próba kör | Kész |
+| 7 | Magenta Slime + Magenta Triangle mintázat, 6×, összesen 12 + 6 | Kész |
+| 8 | 10× (3 Magenta Slime), 2 mp-enként | Kész |
+| 9 | 10× (4 Magenta Slime), 2 mp-enként | Kész |
+| 10 | 10× (4 Magenta Slime), majd 1 Final Boss (Magenta Slime Boss) a végén — a játék jelenlegi vége | Kész |
 
 ## Hullámok (waves) — adatvezérelt "spawn step" modell
 
@@ -199,4 +239,4 @@ Ez a rendszer **felváltja**, nem kiegészíti a korábbi "difficulty curve" ter
 
 ## Következő lépés
 
-A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell) le van fektetve, Level 1 mind a 10 köre kész tartalommal (lásd "Pályák és körök" és "Ellenségek" fent). Következő kör: a nehézségi görbe éles teszttel való finomhangolása, és hosszabb távon a torony-választék bővítése (jelenleg még csak 1 torony típus van, a GAMEPLAY.md "Tornyok" szekció 3-4 típust vázol fel).
+A rendszer (loop, gazdaság, skill fa szerkezet, hullám-modell, több pálya) le van fektetve, mindhárom pálya (30 kör) kész tartalommal, 3 torony típussal (lásd "Pályák és körök", "Ellenségek", "Tornyok" fent). Következő kör: a nehézségi görbe éles teszttel való finomhangolása (főleg Level 2/3, ahol a "hány tornyot kell csoportosítani" feltevés még nincs élesben tesztelve), és hosszabb távon egy negyedik, lassítás/kontroll szerepkörű torony típus.

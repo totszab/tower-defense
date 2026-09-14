@@ -10,29 +10,53 @@ using TowerDefense.UI;
 
 namespace TowerDefense.Levels;
 
-// Level 1 kör-lejátszó. Egyelőre csak Level 1 létezik (mind a 10 köre kész
-// tartalommal) — több pálya esetén ez a "melyik pálya" dimenzióval bővül majd
-// (GAMEPLAY.md "Pályák", PlayerProgress.HighestUnlockedRound megjegyzése).
+// Kör-lejátszó — egy scene, minden pálya (Level1/Level2/Level3) ezt tölti be
+// újra, csak a WaveData-mappa és a torony-választék tér el (lásd RequestedLevelId,
+// TowerUnlocks). GAMEPLAY.md "Pályák" a teljes szerkezetet leírja.
 public partial class LevelBuild : Node2D
 {
     // MainMenu ezt állítja be ChangeSceneToFile előtt (nincs egyszerűbb módja
     // paramétert átadni egy scene-váltásnak Godotban).
+    public static string RequestedLevelId = "Level1";
     public static int RequestedRoundNumber = 1;
 
     private const int TotalRoundsPerLevel = 10;
 
-    // Mind a 10 körnek van WaveData tartalma (lásd MainMenu.PlayableRounds —
-    // a két konstans szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
+    // Mind a 10 körnek van WaveData tartalma minden pályán (lásd MainMenu.PlayableRounds
+    // — a két konstans szándékosan duplikált, mindkettő ugyanazt a tényt tükrözi).
     private const int MaxPlayableRound = 10;
     private const int Columns = 13;
     private const int PathRow = 1;
     private static readonly int[] BuildableRows = { 0, 2 };
 
+    // Sorrend, amiben a pályák egymást feloldják — az N. pálya 10. körének
+    // teljesítése nyitja meg az N+1.-et (lásd EndRound).
+    private static readonly string[] LevelOrder = { "Level1", "Level2", "Level3" };
+
+    // Melyik torony milyen pálya feloldásakor válik elérhetővé — globálisan,
+    // minden pályán (nem csak azon, ahol debütált). Kézzel karbantartott lista,
+    // akárcsak MainMenu.CodexEnemyPaths.
+    private static readonly (string ScenePath, string UnlockLevelId)[] TowerUnlocks =
+    {
+        ("res://Scenes/Towers/Tower.tscn", "Level1"),
+        ("res://Scenes/Towers/SplashTower.tscn", "Level2"),
+        ("res://Scenes/Towers/SniperTower.tscn", "Level3"),
+    };
+
     // Bootstrap value only — real per-level numbers belong in a Resource
     // once real levels exist (GAMEPLAY.md "Pályák" TBD).
     private const int BaseStartingHp = 3;
 
-    [Export] public PackedScene[] AvailableTowers { get; set; } = Array.Empty<PackedScene>();
+    // Kézzel karbantartott, angol megjelenítési név — akárcsak MainMenu.LevelDisplayNames.
+    private static string LevelDisplayName(string levelId) => levelId switch
+    {
+        "Level1" => "Level 1",
+        "Level2" => "Level 2",
+        "Level3" => "Level 3",
+        _ => levelId,
+    };
+
+    private readonly List<PackedScene> _availableTowers = new();
     [Export] public PackedScene EnemyScene { get; set; }
 
     private readonly Dictionary<Vector2I, Tower> _towersByTile = new();
@@ -42,6 +66,7 @@ public partial class LevelBuild : Node2D
     private Node2D _towers;
     private Node2D _enemies;
     private VBoxContainer _towerPalette;
+    private readonly Dictionary<TextureButton, Color> _towerButtonBaseTint = new();
     private TextureButton _selectedButton;
     private PackedScene _selectedTowerScene;
     private bool _buildingEnabled = true;
@@ -68,6 +93,7 @@ public partial class LevelBuild : Node2D
     private Button _savePresetButton;
 
     private PlayerProgress _progress;
+    private string _levelId;
     private int _roundNumber;
     private WaveData _wave;
     private int _currentStepIndex;
@@ -123,13 +149,22 @@ public partial class LevelBuild : Node2D
         UpdateDamageToggleText(dmgToggle);
         DamageTracker.DamageDealt += OnDamageDealt;
 
+        _progress = new LocalFileSaveProvider().Load();
+        _levelId = RequestedLevelId;
+        foreach (var (scenePath, unlockLevelId) in TowerUnlocks)
+        {
+            if (_progress.IsLevelUnlocked(unlockLevelId))
+            {
+                _availableTowers.Add(GD.Load<PackedScene>(scenePath));
+            }
+        }
+
         BuildTowerPalette();
 
         _roundNumber = RequestedRoundNumber;
-        _wave = GD.Load<WaveData>($"res://Data/Waves/Level1/Round{_roundNumber}.tres");
+        _wave = GD.Load<WaveData>($"res://Data/Waves/{_levelId}/Round{_roundNumber}.tres");
         _totalEnemiesThisWave = _wave.TotalEnemyCount();
 
-        _progress = new LocalFileSaveProvider().Load();
         // "towers" node legalább 1-en indul (lásd PlayerProgress.GetSkillLevel), így
         // egy friss mentésnél is lerakható az első torony.
         _maxTowers = _progress.GetSkillLevel("towers");
@@ -139,7 +174,7 @@ public partial class LevelBuild : Node2D
         _hp = _maxHp;
         UpdateHpBar();
         _totalGoldLabel.Text = $"Total Gold: {_progress.MetaCurrency}";
-        _roundLabel.Text = $"Round {_roundNumber}";
+        _roundLabel.Text = $"{LevelDisplayName(_levelId)} — Round {_roundNumber}";
         _towerCountLabel.Text = $"Towers: 0/{_maxTowers}";
         _statsPopup.Visible = false;
 
@@ -239,11 +274,14 @@ public partial class LevelBuild : Node2D
         _towerPalette = new VBoxContainer { Position = new Vector2(20, 70) };
         rightPanel.AddChild(_towerPalette);
 
-        foreach (var towerScene in AvailableTowers)
+        foreach (var towerScene in _availableTowers)
         {
-            // Instantiate off-tree just to read the default sprite for the icon, then discard it.
-            var preview = towerScene.Instantiate<Node2D>();
-            var icon = preview.GetNode<Sprite2D>("Sprite2D").Texture;
+            // Instantiate off-tree just to read the default sprite/tint/name for the icon, then discard it.
+            var preview = towerScene.Instantiate<Tower>();
+            var sprite = preview.GetNode<Sprite2D>("Sprite2D");
+            var icon = sprite.Texture;
+            var baseTint = sprite.Modulate;
+            var displayName = preview.Data.DisplayName;
             preview.QueueFree();
 
             var button = new TextureButton
@@ -252,8 +290,10 @@ public partial class LevelBuild : Node2D
                 CustomMinimumSize = new Vector2(64, 64),
                 StretchMode = TextureButton.StretchModeEnum.KeepAspectCentered,
                 IgnoreTextureSize = true,
-                Modulate = Colors.White,
+                Modulate = baseTint,
+                TooltipText = displayName,
             };
+            _towerButtonBaseTint[button] = baseTint;
             button.Pressed += () => OnTowerButtonPressed(button, towerScene);
             _towerPalette.AddChild(button);
         }
@@ -264,7 +304,7 @@ public partial class LevelBuild : Node2D
         if (_selectedButton == button)
         {
             // Clicking the already-selected tower again deselects it.
-            button.Modulate = Colors.White;
+            button.Modulate = _towerButtonBaseTint[button];
             _selectedButton = null;
             _selectedTowerScene = null;
             return;
@@ -272,7 +312,7 @@ public partial class LevelBuild : Node2D
 
         if (_selectedButton != null)
         {
-            _selectedButton.Modulate = Colors.White;
+            _selectedButton.Modulate = _towerButtonBaseTint[_selectedButton];
         }
 
         button.Modulate = new Color(1f, 0.95f, 0.4f);
@@ -353,12 +393,12 @@ public partial class LevelBuild : Node2D
         HideTowerInfo();
     }
 
-    // Ha van mentett preset ehhez a pályához (Level 1 bármelyik köréhez közös),
-    // automatikusan lerakja induláskor — a _maxTowers/_towersByTile-nak már
-    // készen kell állnia, mielőtt ez lefut.
+    // Ha van mentett preset ehhez a pályához (az adott pálya BÁRMELYIK köréhez
+    // közös), automatikusan lerakja induláskor — a _maxTowers/_towersByTile-nak
+    // már készen kell állnia, mielőtt ez lefut.
     private void ApplyPreset()
     {
-        foreach (var entry in _progress.Level1Preset)
+        foreach (var entry in _progress.GetPreset(_levelId))
         {
             if (_towersByTile.Count >= _maxTowers) break;
 
@@ -366,7 +406,7 @@ public partial class LevelBuild : Node2D
             if (_towersByTile.ContainsKey(tile)) continue;
 
             PackedScene scene = null;
-            foreach (var candidate in AvailableTowers)
+            foreach (var candidate in _availableTowers)
             {
                 if (candidate.ResourcePath == entry.TowerScenePath)
                 {
@@ -400,7 +440,7 @@ public partial class LevelBuild : Node2D
             });
         }
 
-        _progress.Level1Preset = preset;
+        _progress.SetPreset(_levelId, preset);
         new LocalFileSaveProvider().Save(_progress);
     }
 
@@ -538,9 +578,25 @@ public partial class LevelBuild : Node2D
 
         _progress.MetaCurrency += _goldCollected;
 
-        if (success && _roundNumber >= _progress.HighestUnlockedRound)
+        if (success && _roundNumber >= _progress.GetHighestUnlockedRound(_levelId))
         {
-            _progress.HighestUnlockedRound = Math.Min(_roundNumber + 1, TotalRoundsPerLevel);
+            _progress.HighestUnlockedRoundByLevel[_levelId] = Math.Min(_roundNumber + 1, TotalRoundsPerLevel);
+
+            // Az utolsó kör (final boss) teljesítése nyitja meg a következő pályát —
+            // lásd LevelOrder. Csak akkor állítjuk be, ha még nincs feloldva, hogy
+            // egy esetleges újrajátszás ne írja felül a következő pálya haladását.
+            if (_roundNumber == TotalRoundsPerLevel)
+            {
+                var levelIndex = Array.IndexOf(LevelOrder, _levelId);
+                if (levelIndex >= 0 && levelIndex + 1 < LevelOrder.Length)
+                {
+                    var nextLevelId = LevelOrder[levelIndex + 1];
+                    if (!_progress.IsLevelUnlocked(nextLevelId))
+                    {
+                        _progress.HighestUnlockedRoundByLevel[nextLevelId] = 1;
+                    }
+                }
+            }
         }
 
         new LocalFileSaveProvider().Save(_progress);
@@ -579,6 +635,7 @@ public partial class LevelBuild : Node2D
 
     private void OnNextRoundPressed()
     {
+        RequestedLevelId = _levelId;
         RequestedRoundNumber = _roundNumber + 1;
         GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }

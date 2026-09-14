@@ -11,14 +11,18 @@ public class PlayerProgress
     // "hp", "currency", "dmg", "fireRate" (lásd MainMenu.cs).
     public Dictionary<string, int> SkillLevels { get; set; } = new();
 
-    // Egyszerűsített, egy-pályás verzió: hányas kör a legmagasabb feloldott
-    // (Level 1-en belül). Ha több pálya lesz, ez pálya-kulcsos map-re bővül.
-    public int HighestUnlockedRound { get; set; } = 1;
+    // Pálya-kulcsos (pl. "Level1") map: hányas kör a legmagasabb feloldott
+    // az adott pályán belül. Hiányzó kulcs = a pálya maga sincs feloldva
+    // (lásd IsLevelUnlocked). Level1 alapból 1-en indul, a többi pálya az
+    // előző pálya 10. körének teljesítésekor nyílik meg (LevelBuild.EndRound).
+    public Dictionary<string, int> HighestUnlockedRoundByLevel { get; set; } = new() { ["Level1"] = 1 };
 
-    // Pályánként (jelenleg csak Level 1) EGY mentett torony-elrendezés,
-    // amit a pálya BÁRMELYIK körének indításakor alapból alkalmazunk.
-    // Ha több pálya lesz, ez is pálya-kulcsos map-re bővül.
-    public List<PresetTowerEntry> Level1Preset { get; set; } = new();
+    // Pályánként EGY mentett torony-elrendezés, amit az adott pálya
+    // BÁRMELYIK körének indításakor alapból alkalmazunk.
+    public Dictionary<string, List<PresetTowerEntry>> PresetByLevel { get; set; } = new();
+
+    // A Főmenü szint-választó popupja ezt nyitja meg alapból.
+    public string LastPlayedLevelId { get; set; } = "Level1";
 
     public int GetSkillLevel(string nodeId)
     {
@@ -32,5 +36,18 @@ public class PlayerProgress
         }
 
         return level;
+    }
+
+    public int GetHighestUnlockedRound(string levelId) =>
+        HighestUnlockedRoundByLevel.TryGetValue(levelId, out var round) ? round : 0;
+
+    public bool IsLevelUnlocked(string levelId) => GetHighestUnlockedRound(levelId) >= 1;
+
+    public List<PresetTowerEntry> GetPreset(string levelId) =>
+        PresetByLevel.TryGetValue(levelId, out var preset) ? preset : new List<PresetTowerEntry>();
+
+    public void SetPreset(string levelId, List<PresetTowerEntry> preset)
+    {
+        PresetByLevel[levelId] = preset;
     }
 }

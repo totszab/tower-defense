@@ -41,7 +41,6 @@ border_width_bottom = 2
 [node name="Level01Test" type="Node2D"]
 position = Vector2(10, 240)
 script = ExtResource("1")
-AvailableTowers = Array[PackedScene]([ExtResource("2")])
 EnemyScene = ExtResource("3")
 
 [node name="BackgroundLayer" type="CanvasLayer" parent="."]

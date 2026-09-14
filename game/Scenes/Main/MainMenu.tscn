@@ -83,12 +83,12 @@ offset_bottom = 45.0
 theme_override_font_sizes/font_size = 24
 text = "Select Round"
 
-[node name="Level1Button" type="Button" parent="CanvasLayer/LevelSelectPopup"]
+[node name="LevelTabs" type="HBoxContainer" parent="CanvasLayer/LevelSelectPopup"]
 offset_left = 20.0
 offset_top = 55.0
-offset_right = 170.0
+offset_right = 600.0
 offset_bottom = 92.0
-text = "✓ Level 1"
+theme_override_constants/separation = 10
 
 [node name="RoundGrid" type="GridContainer" parent="CanvasLayer/LevelSelectPopup"]
 offset_left = 20.0
