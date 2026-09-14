@@ -83,7 +83,7 @@ Ez a legfontosabb architekturális döntés, érdemes tisztán tartani:
 
 Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. réteg (a hub 4 közvetlen gyereke) után a **páros** rétegek (2, 4, 6) KETTÉ ágaznak (±10°), a **páratlan** rétegek (3, 5) egyenesen folytatódnak (1 gyerek, kicsit "kanyarodva") — azaz "4 → 2-2 → 1-1 → 2-2 → 1-1 → 2-2". Ágenként 21 node (1+2+2+4+4+8), a hub-bal együtt összesen 85 node a pályán. Minden node a saját ágának megfelelő kerettel+háttérrel jelenik meg (`MainMenu.SkillBranchColors`) — a placeholder node-ok ugyanezt a színt kapják, csak elhalványítva, hogy üresen is látszódjon, melyik ághoz tartoznak.
 
-**Jelenleg 26 node valódi/vásárolható** — a hub, a Towers ág 2 unlock node-ja, és a **Damage/Defense/Gold ágak teljes L1-L4 rétege**:
+**Jelenleg 32 node valódi/vásárolható** — a hub kivételével mind a 4 ág **teljes L1-L4 rétege** fel van töltve:
 
 | Node (UI felirat) | id | Pozíció (ág / réteg) | Hatás / szint | Ár |
 |---|---|---|---|---|
@@ -111,14 +111,22 @@ Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. r�
 | Hit Gold Chance | `goldOnHitChance` | Gold / L4, a Gold Per Kill (2.) leszármazottja | +2%/szint esély, hogy egy TALÁLAT (nem csak ölés) 1 arany bónuszt adjon — **csak 3 szint** | 15/35/75 |
 | Enemy Buff | `enemyStatsAndDrop` | Gold / L4, az Enemy Surge (1.) leszármazottja | +5%/szint az ellenségek HP/Dmg/Value értékére (kockázat/jutalom) — **csak 4 szint** | 20/45/90/160 |
 | Bonus Boss | `extraMiniBossChance` | Gold / L4, az Enemy Surge (2.) leszármazottja | +5%/szint esély, hogy a kör végén EGY extra mini boss is spawnoljon (a pálya saját mini bossa, lásd `LevelBuild.LevelMiniBossPaths`) — **csak 3 szint** | 15/35/75 |
-| Splash Tower | `unlockSplash` | Towers / L2 | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
-| Sniper Tower | `unlockSniper` | Towers / L3 | Egyszeri: feloldja a Sniper Tower típust | 400 |
+| Turret Radius | `turretRadius` | Towers / L2 (1. node) | +5%/szint torony lőtáv, MINDEN toronynak (globális) | 15/35/75 |
+| Splash Tower | `unlockSplash` | Towers / L2 (2. node) | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
+| Turret Attack Speed | `turretAttackSpeed` | Towers / L3, a Turret Radius leszármazottja | +2%/szint tűzgyorsaság, MINDEN toronynak (összeadódik a Damage ág `fireRate`/`fireRate2`-jével) — **csak 3 szint** | 15/35/75 |
+| Splash Area | `splashAreaPercent` | Towers / L3, az (Unlock) Splash Tower leszármazottja | +2%/szint a Splash Tower saját sugarára (csak akkor számít, ha a Splash Tower már fel van oldva) — **csak 3 szint** | 15/35/75 |
+| Sniper Tower | `unlockSniper` | Towers / L4, a Turret Attack Speed (1.) leszármazottja | Egyszeri: feloldja a Sniper Tower típust | 400 |
+| Turret Damage | `turretDamagePercent` | Towers / L4, a Turret Attack Speed (2.) leszármazottja | +3%/szint SZORZÓ sebzés, MINDEN toronynak (a `dmg`/`dmg2` flat bónusza UTÁN alkalmazva) — **csak 3 szint** | 15/35/75 |
+| Splash Damage | `splashDamagePercent` | Towers / L4, a Splash Area (1.) leszármazottja | +5%/szint szorzó, DE CSAK a splash-találatokra hat, a normál becsapódásra nem — **csak 3 szint** | 15/35/75 |
+| Chance To Splash | `chanceToSplash` | Towers / L4, a Splash Area (2.) leszármazottja | +2%/szint esély, hogy egy EGYÉBKÉNT nem-splash torony lövése is 1 tile sugarú területet sebezzen — **csak 3 szint** | 15/35/75 |
 
 **A Defense/Gold ág implementációja** (`LevelBuild.cs`): az armor/regen/gold-mechanikák mind a helyi kör-állapotban élnek (`_hp`, `_goldCollected` stb.), ugyanúgy, mint az összes eddigi statisztika. Az `enemySpawnBonus` a hullám tényleges spawn-számát növeli (`AdjustedSpawnCount`), ezért a győzelmi feltétel (`_totalEnemiesThisWave`) is ehhez az IGAZÍTOTT összeghez igazodik, nem a nyers `WaveData.TotalEnemyCount()`-hoz. Az `enemyStatsAndDrop` az `Enemy.StatMultiplier` mezőn keresztül hat (spawn-oláskor beállítva) — SOHA nem módosítja magát az `EnemyData` resource-ot (megosztott, lásd a `CollisionShape2D`-s óvatosságot is). A `goldOnHitChance` a MEGLÉVŐ `DamageTracker.DamageDealt` eseményre épül (amit a `OnDamageDealt` már amúgy is figyel a statisztika popuphoz), nem igényelt új esemény-rendszert.
 
+**A Towers ág implementációja** (`Tower.cs`/`Projectile.cs`): a `turretRadius` **valóban átméretezi** a torony `RangeArea` collision shape-jét (duplikálva, mint az Enemy-nél) — ezzel mellékesen kijavítja azt a régi hiányosságot is, hogy a lőtáv eddig csak a `.tscn`-be beégetett fix sugár volt, nem a `Data.Range`-ből számolt érték. A `Tower.EffectiveRange` új property mutatja a bónuszos lőtávot — ezt használja a torony-infó popup és a lőtáv-kör kirajzolás is (`LevelBuild.cs`), nem a nyers `Data.Range`-t. A `splashDamagePercent` a `Projectile.SplashDamageMultiplier`-en keresztül CSAK a `HitSplash` ágban hat, a normál (nem-splash) találatra nem. A `chanceToSplash` egy nem-splash torony lövésének is ad egy fix 1 tile sugarú splash esélyt — ugyanazt a `Projectile.HitSplash` logikát használva, amit a Splash Tower is.
+
 A Damage ág fája: `dmg` (L1) → **{`fireRate`, `critChance`}** (L2, kettéágazik) → **{`dmg2` a fireRate-ből, `critDamage` a critChance-ből}** (L3, egyenesen tovább) → **{`projectileCount`+`fireRate2` a dmg2-ből, `critChance2`+`fireTwiceChance` a critDamage-ből}** (L4, mindkettő újra kettéágazik). A `critChance`/`critChance2`/`critDamage` egy ÚJ mechanikát vezet be (korábban nem volt kritikus találat a játékban) — a tényleges harci logika (`Tower.FireAt`) sorsolja a kritikus találatot és az extra lövedékeket/lövést, lásd "Tornyok" MEGJEGYZÉS lent.
 
-A maradék node (Damage ág L5-L6, a másik 3 ág L2-L6-ja, Towers ág L1 és L4-L6-ja) **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve.
+A maradék node (mind a 4 ág L5-L6 rétege, Towers ág L1 hub-hoz kapcsolódó node-ja) **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve.
 
 **Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál). Az egyszeri unlock node-ok `MainMenu.MaxLevelFor()` szerint 1-nél, a `towers` 10-nél, a `projectileCount`/`fireTwiceChance` 3-nál, a többi node 5-nél maxol ki.
 

@@ -15,6 +15,10 @@ public partial class Projectile : Node2D
     // Tiles (see GridConstants.TileSize). 0 = nincs area sebzés.
     public float SplashRadius { get; set; } = 0f;
 
+    // Towers ág, "splash damage %" — csak a splash-találatra hat, a normál
+    // (nem-splash) becsapódásra nem. 1 = nincs bónusz.
+    public float SplashDamageMultiplier { get; set; } = 1f;
+
     public override void _Ready()
     {
         QueueRedraw();
@@ -63,6 +67,7 @@ public partial class Projectile : Node2D
     private void HitSplash(Vector2 hitPosition)
     {
         var splashRadiusPx = SplashRadius * GridConstants.TileSize;
+        var splashDamage = Damage * SplashDamageMultiplier;
         var enemies = GetTree().CurrentScene.GetNode<Node2D>("Enemies");
 
         foreach (var child in enemies.GetChildren())
@@ -70,9 +75,9 @@ public partial class Projectile : Node2D
             if (child is not Enemy enemy || !IsInstanceValid(enemy) || enemy.IsDead) continue;
             if (enemy.GlobalPosition.DistanceTo(hitPosition) > splashRadiusPx) continue;
 
-            enemy.TakeDamage(Damage);
-            DamageTracker.Report(TowerName, Damage);
-            DamageNumberSpawner.Spawn(this, enemy.GlobalPosition, Damage);
+            enemy.TakeDamage(splashDamage);
+            DamageTracker.Report(TowerName, splashDamage);
+            DamageNumberSpawner.Spawn(this, enemy.GlobalPosition, splashDamage);
         }
     }
 

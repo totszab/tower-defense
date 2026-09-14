@@ -9,11 +9,10 @@ namespace TowerDefense.MainMenu;
 
 // Skill fa v2: hub + 4 fő ág (balra=Damage, fel=Defense, jobbra=Gold,
 // le=Towers/Special), mindegyik 6 rétegen át elágazva (lásd BuildSkillTreeLayout).
-// A legtöbb generált node egyelőre PLACEHOLDER (nincs tartalma, csak a forma
-// látszik) — a Damage ág L1-L4 rétege és a Towers ág L1-L3 rétege van
-// feltöltve (lásd SkillRealNodeIds), a többi ág/mélyebb réteg egyelőre üres.
-// A csoportonkénti tartalom-feltöltés (mi legyen a többi node, milyen áron)
-// külön kör, lásd GAMEPLAY.md "Skill fa".
+// A Damage/Defense/Gold/Towers ágak L1-L4 rétege fel van töltve (lásd
+// SkillRealNodeIds), a Towers ág hub-hoz közvetlenül kapcsolódó L1 node-ja
+// és minden ág L5-L6 rétege egyelőre PLACEHOLDER. A csoportonkénti
+// tartalom-feltöltés külön kör, lásd GAMEPLAY.md "Skill fa".
 public partial class MainMenu : Node2D
 {
     private const int MaxLevel = 5;
@@ -182,8 +181,19 @@ public partial class MainMenu : Node2D
         [(SkillBranch.Gold, 4, "21")] = "enemyStatsAndDrop",
         [(SkillBranch.Gold, 4, "22")] = "extraMiniBossChance",
 
-        [(SkillBranch.Towers, 2, "1")] = "unlockSplash",
-        [(SkillBranch.Towers, 3, "1")] = "unlockSniper",
+        // Towers ág: 1(hub)->még nincs eldöntve (placeholder), 2.1->turretRadius,
+        // 2.2->unlockSplash, 3.1 (turretRadius-ból)->turretAttackSpeed,
+        // 3.2 (unlockSplash-ból)->splashAreaPercent, 4.11 (turretAttackSpeed-ből)
+        // ->unlockSniper, 4.12->turretDamagePercent, 4.21 (splashAreaPercent-ből)
+        // ->splashDamagePercent, 4.22->chanceToSplash.
+        [(SkillBranch.Towers, 2, "1")] = "turretRadius",
+        [(SkillBranch.Towers, 2, "2")] = "unlockSplash",
+        [(SkillBranch.Towers, 3, "1")] = "turretAttackSpeed",
+        [(SkillBranch.Towers, 3, "2")] = "splashAreaPercent",
+        [(SkillBranch.Towers, 4, "11")] = "unlockSniper",
+        [(SkillBranch.Towers, 4, "12")] = "turretDamagePercent",
+        [(SkillBranch.Towers, 4, "21")] = "splashDamagePercent",
+        [(SkillBranch.Towers, 4, "22")] = "chanceToSplash",
     };
 
     private readonly List<(string Id, Vector2 Pos, SkillBranch Branch)> _skillNodes = new();
@@ -218,6 +228,12 @@ public partial class MainMenu : Node2D
         ["goldOnHitChance"] = "+2% chance to get 1 gold per hit",
         ["enemyStatsAndDrop"] = "+5% enemy HP/damage/gold drop",
         ["extraMiniBossChance"] = "+5% chance to spawn an extra mini boss this round",
+        ["turretRadius"] = "+5% tower range",
+        ["turretAttackSpeed"] = "+2% tower attack speed",
+        ["splashAreaPercent"] = "+2% splash radius",
+        ["turretDamagePercent"] = "+3% tower damage",
+        ["splashDamagePercent"] = "+5% splash damage",
+        ["chanceToSplash"] = "+2% chance for any shot to also splash",
     };
 
     private readonly Dictionary<string, Button> _buttons = new();
@@ -544,20 +560,25 @@ public partial class MainMenu : Node2D
         "goldAfterWin" or "currency2" => CurrencyCosts,
         "goldPerKill" => GoldPerKillCosts,
         "enemySpawnBonus" or "enemyStatsAndDrop" => Normal4LevelCosts,
+        "turretRadius" or "turretAttackSpeed" or "splashAreaPercent"
+            or "turretDamagePercent" or "splashDamagePercent" or "chanceToSplash" => Normal3LevelCosts,
         _ => CurrencyCosts,
     };
 
     // A legtöbb node 0-5 szintes, de az egyszeri torony-unlockok csak 0 vagy 1
     // lehetnek (lásd UnlockSplashCosts/UnlockSniperCosts, egy elemű tömbök), a
     // projectileCount/fireTwiceChance/goldPerKill/regen-ek/doubleGoldChance/
-    // goldOnHitChance/extraMiniBossChance szándékosan csak 3, az
-    // enemySpawnBonus/enemyStatsAndDrop csak 4 szintes (lásd Costs tömbjeik).
+    // goldOnHitChance/extraMiniBossChance/Towers-ág-node-ok szándékosan csak
+    // 3, az enemySpawnBonus/enemyStatsAndDrop csak 4 szintes (lásd Costs
+    // tömbjeik).
     private static int MaxLevelFor(string nodeId) => nodeId switch
     {
         "unlockSplash" or "unlockSniper" => 1,
         "towers" => MaxTowersLevel,
         "projectileCount" or "fireTwiceChance" or "regenPerKills" or "regenPerTime"
-            or "doubleGoldChance" or "goldPerKill" or "goldOnHitChance" or "extraMiniBossChance" => 3,
+            or "doubleGoldChance" or "goldPerKill" or "goldOnHitChance" or "extraMiniBossChance"
+            or "turretRadius" or "turretAttackSpeed" or "splashAreaPercent"
+            or "turretDamagePercent" or "splashDamagePercent" or "chanceToSplash" => 3,
         "enemySpawnBonus" or "enemyStatsAndDrop" => 4,
         _ => MaxLevel,
     };
@@ -589,6 +610,12 @@ public partial class MainMenu : Node2D
         "goldOnHitChance" => $"+{level * 2}% gold/hit",
         "enemyStatsAndDrop" => $"+{level * 5}% enemy stats",
         "extraMiniBossChance" => $"+{level * 5}% extra boss",
+        "turretRadius" => $"+{level * 5}% range",
+        "turretAttackSpeed" => $"+{level * 2}% attack speed",
+        "splashAreaPercent" => $"+{level * 2}% splash radius",
+        "turretDamagePercent" => $"+{level * 3}% damage",
+        "splashDamagePercent" => $"+{level * 5}% splash damage",
+        "chanceToSplash" => $"+{level * 2}% chance to splash",
         _ => "",
     };
 

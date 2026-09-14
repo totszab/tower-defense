@@ -453,7 +453,7 @@ public partial class LevelBuild : Node2D
         _towerInfoLabel.Text =
             $"{tower.Data.DisplayName}\n" +
             $"Damage: {tower.EffectiveDamage:0.#}\n" +
-            $"Range: {tower.Data.Range:0.#} tiles\n" +
+            $"Range: {tower.EffectiveRange:0.#} tiles\n" +
             $"Fire Rate: {tower.EffectiveFireRate:0.##}/sec";
         _towerInfoPopup.Position = tower.GlobalPosition + new Vector2(40, -90);
         QueueRedraw();
@@ -841,7 +841,7 @@ public partial class LevelBuild : Node2D
 
         if (_selectedInfoTower != null && IsInstanceValid(_selectedInfoTower))
         {
-            var radius = _selectedInfoTower.Data.Range * GridConstants.TileSize;
+            var radius = _selectedInfoTower.EffectiveRange * GridConstants.TileSize;
             DrawCircle(_selectedInfoTower.Position, radius, new Color(1f, 1f, 0.3f, 0.15f));
             DrawArc(_selectedInfoTower.Position, radius, 0f, Mathf.Tau, 48, new Color(1f, 1f, 0.3f, 0.7f), 2f);
         }

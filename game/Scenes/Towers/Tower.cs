@@ -20,9 +20,15 @@ public partial class Tower : Node2D
     private float _critDamageMultiplier = 1f;
     private int _extraProjectiles;
     private float _fireTwiceChance;
+    private float _damagePercentMultiplier = 1f;
+    private float _rangeMultiplier = 1f;
+    private float _splashRadiusMultiplier = 1f;
+    private float _splashDamageMultiplier = 1f;
+    private float _chanceToSplash;
 
-    public float EffectiveDamage => Data.Damage + _bonusDamage;
+    public float EffectiveDamage => (Data.Damage + _bonusDamage) * _damagePercentMultiplier;
     public float EffectiveFireRate => Data.FireRate * _fireRateMultiplier;
+    public float EffectiveRange => Data.Range * _rangeMultiplier;
 
     public override void _Ready()
     {
@@ -30,15 +36,36 @@ public partial class Tower : Node2D
         // TBD: ma minden toronyra hat (globális), amikor torony-specifikus
         // upgrade-ág is lesz, ezt szűkíteni kell (GAMEPLAY.md "Skill fa").
         _bonusDamage = progress.GetSkillLevel("dmg") + progress.GetSkillLevel("dmg2") * 2;
-        _fireRateMultiplier = 1f + (progress.GetSkillLevel("fireRate") + progress.GetSkillLevel("fireRate2")) * 0.05f;
+        _fireRateMultiplier = 1f
+            + (progress.GetSkillLevel("fireRate") + progress.GetSkillLevel("fireRate2")) * 0.05f
+            + progress.GetSkillLevel("turretAttackSpeed") * 0.02f;
         _critChance = (progress.GetSkillLevel("critChance") + progress.GetSkillLevel("critChance2")) * 0.01f;
         _critDamageMultiplier = 1f + progress.GetSkillLevel("critDamage") * 0.05f;
         _extraProjectiles = progress.GetSkillLevel("projectileCount");
         _fireTwiceChance = progress.GetSkillLevel("fireTwiceChance") * 0.02f;
+        _damagePercentMultiplier = 1f + progress.GetSkillLevel("turretDamagePercent") * 0.03f;
+        _rangeMultiplier = 1f + progress.GetSkillLevel("turretRadius") * 0.05f;
+        _splashRadiusMultiplier = 1f + progress.GetSkillLevel("splashAreaPercent") * 0.02f;
+        _splashDamageMultiplier = 1f + progress.GetSkillLevel("splashDamagePercent") * 0.05f;
+        _chanceToSplash = progress.GetSkillLevel("chanceToSplash") * 0.02f;
 
         var rangeArea = GetNode<Area2D>("RangeArea");
         rangeArea.AreaEntered += OnAreaEntered;
         rangeArea.AreaExited += OnAreaExited;
+
+        // Towers ág, "+base turret radius %" — a .tscn-ben rögzített
+        // CircleShape2D sugarát Data.Range-ből (és a bónuszból) frissen
+        // számoljuk újra, nem hagyatkozunk a .tscn-be beégetett értékre.
+        // Duplikálni kell a shape-et, mert meg van osztva minden ugyanolyan
+        // típusú torony-példány között (ugyanaz az elv, mint az Enemy
+        // CollisionShape2D-jénél).
+        if (_rangeMultiplier != 1f)
+        {
+            var rangeCollision = rangeArea.GetNode<CollisionShape2D>("CollisionShape2D");
+            var rangeShape = (CircleShape2D)((CircleShape2D)rangeCollision.Shape).Duplicate();
+            rangeShape.Radius = EffectiveRange * GridConstants.TileSize;
+            rangeCollision.Shape = rangeShape;
+        }
     }
 
     public override void _Process(double delta)
@@ -104,7 +131,27 @@ public partial class Tower : Node2D
         projectile.Target = target;
         projectile.Damage = damage;
         projectile.TowerName = Data.DisplayName;
-        projectile.SplashRadius = Data.SplashRadius;
+        projectile.SplashRadius = EffectiveSplashRadius();
+        projectile.SplashDamageMultiplier = _splashDamageMultiplier;
+    }
+
+    // Towers ág: a "splash area %" a MEGLÉVŐ splash sugarat növeli; a "chance
+    // to splash" pedig esélyt ad, hogy egy EGYÉBKÉNT nem-splash torony
+    // (SplashRadius=0) lövése is területet sebezzen (kis, fix 1 tile-os
+    // sugárral) — ugyanazt a Projectile.HitSplash logikát használva.
+    private float EffectiveSplashRadius()
+    {
+        if (Data.SplashRadius > 0f)
+        {
+            return Data.SplashRadius * _splashRadiusMultiplier;
+        }
+
+        if (_chanceToSplash > 0f && GD.Randf() < _chanceToSplash)
+        {
+            return 1f;
+        }
+
+        return 0f;
     }
 
     private void OnAreaEntered(Area2D area)
