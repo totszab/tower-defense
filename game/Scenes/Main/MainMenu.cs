@@ -204,6 +204,12 @@ public partial class MainMenu : Node2D
     private readonly List<(string Id, Vector2 Pos, SkillBranch Branch)> _skillNodes = new();
     private readonly List<(Vector2 From, Vector2 To, SkillBranch Branch)> _skillEdges = new();
 
+    // node id -> a fában közvetlenül előtte lévő (VALÓDI) node id-je — a
+    // node csak akkor vásárolható (1. szintre sem), ha ez legalább 1.
+    // szinten van (lásd OnNodePressed). Feltöltve a BuildSkillTreeLayout
+    // bejárása közben.
+    private readonly Dictionary<string, string> _nodeParentId = new();
+
     // Tooltip (hover) szöveg: az egy szintnyi (marginális) hatás, angolul.
     private static readonly Dictionary<string, string> NodePerLevelText = new()
     {
@@ -327,16 +333,24 @@ public partial class MainMenu : Node2D
     {
         _skillNodes.Clear();
         _skillEdges.Clear();
+        _nodeParentId.Clear();
 
         foreach (var (branch, dir) in SkillBranchDirs)
         {
             var layer1Pos = SkillHubPosition + dir * SkillSegment;
+            var layer1Id = SkillRealNodeIds.GetValueOrDefault((branch, 1, ""));
             _skillEdges.Add((SkillHubPosition, layer1Pos, branch));
-            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, 1, "")), layer1Pos, branch));
+            _skillNodes.Add((layer1Id, layer1Pos, branch));
+
+            // Az 1. réteg szülője a hub ("towers") — ez mindig legalább 1.
+            // szinten van (PlayerProgress baseline), tehát ez a feltétel
+            // gyakorlatban sosem blokkol, de az egységesség kedvéért ide is
+            // felvesszük.
+            if (layer1Id != null) _nodeParentId[layer1Id] = "towers";
 
             // A kezdő spin értéke lényegtelen: a 2. réteg PÁROS, tehát úgyis
             // kettéágazik, a bejövő spin-t figyelmen kívül hagyja.
-            BuildSkillBranch(layer1Pos, dir, 2, 0, "", branch);
+            BuildSkillBranch(layer1Pos, dir, 2, 0, "", branch, layer1Id ?? "towers");
         }
     }
 
@@ -345,8 +359,11 @@ public partial class MainMenu : Node2D
     // adja a SkillRealNodeIds-ben használt EGYEDI azonosítót, mert egy sima
     // spin (+1/-1) minden elágazásnál újraindulna (pl. L4-en 4 különböző
     // node is "+1"-nek számítana vele), az útvonal viszont ("11","12","21","22")
-    // mindegyiket egyedivé teszi.
-    private void BuildSkillBranch(Vector2 parentPos, Vector2 dir, int layer, int spin, string path, SkillBranch branch)
+    // mindegyiket egyedivé teszi. `parentRealId` a fában eggyel feljebb lévő
+    // VALÓDI (nem placeholder) node id-je — a fa mentén "átlép" a placeholder
+    // rétegeken (lásd Towers ág üres L1 node-ja), hogy azok sose blokkolják
+    // véglegesen a mögöttük lévő tartalmat (lásd `_nodeParentId`/`OnNodePressed`).
+    private void BuildSkillBranch(Vector2 parentPos, Vector2 dir, int layer, int spin, string path, SkillBranch branch, string parentRealId)
     {
         if (layer > 6) return;
 
@@ -359,9 +376,11 @@ public partial class MainMenu : Node2D
                 var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * sign));
                 var pos = parentPos + d * SkillSegment;
                 var childPath = path + tag;
+                var childId = SkillRealNodeIds.GetValueOrDefault((branch, layer, childPath));
                 _skillEdges.Add((parentPos, pos, branch));
-                _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, childPath)), pos, branch));
-                BuildSkillBranch(pos, d, layer + 1, sign, childPath, branch);
+                _skillNodes.Add((childId, pos, branch));
+                if (childId != null) _nodeParentId[childId] = parentRealId;
+                BuildSkillBranch(pos, d, layer + 1, sign, childPath, branch, childId ?? parentRealId);
             }
         }
         else
@@ -370,9 +389,11 @@ public partial class MainMenu : Node2D
             // szülőtől örökölt spin-nel/útvonallal (nem hoz létre új elágazást).
             var d = dir.Rotated(Mathf.DegToRad(SkillTreeAngleStep * spin));
             var pos = parentPos + d * SkillSegment;
+            var id = SkillRealNodeIds.GetValueOrDefault((branch, layer, path));
             _skillEdges.Add((parentPos, pos, branch));
-            _skillNodes.Add((SkillRealNodeIds.GetValueOrDefault((branch, layer, path)), pos, branch));
-            BuildSkillBranch(pos, d, layer + 1, spin, path, branch);
+            _skillNodes.Add((id, pos, branch));
+            if (id != null) _nodeParentId[id] = parentRealId;
+            BuildSkillBranch(pos, d, layer + 1, spin, path, branch, id ?? parentRealId);
         }
     }
 
@@ -482,6 +503,12 @@ public partial class MainMenu : Node2D
         var normalStyle = MakeNodeStyle(fill, border, 3);
         var hoverStyle = MakeNodeStyle(fill.Lightened(0.1f), border.Lightened(0.15f), 3);
         var pressedStyle = MakeNodeStyle(fill.Darkened(0.1f), border, 3);
+        // Zárolt (előfeltétel-node még nincs megvásárolva) állapot — ugyanaz
+        // az elhalványítás, mint a placeholder node-oknál (lásd BuildPlaceholderNode).
+        var lockedStyle = MakeNodeStyle(
+            new Color(fill.R, fill.G, fill.B, 0.35f),
+            new Color(border.R, border.G, border.B, 0.5f),
+            2);
 
         var button = new Button
         {
@@ -494,6 +521,7 @@ public partial class MainMenu : Node2D
         button.AddThemeStyleboxOverride("normal", normalStyle);
         button.AddThemeStyleboxOverride("hover", hoverStyle);
         button.AddThemeStyleboxOverride("pressed", pressedStyle);
+        button.AddThemeStyleboxOverride("disabled", lockedStyle);
         button.AddThemeColorOverride("font_color", Colors.White);
         button.AddThemeColorOverride("font_hover_color", Colors.White);
         button.AddThemeFontSizeOverride("font_size", 10);
@@ -628,6 +656,8 @@ public partial class MainMenu : Node2D
         var level = _progress.GetSkillLevel(nodeId);
         if (level >= MaxLevelFor(nodeId)) return;
 
+        if (_nodeParentId.TryGetValue(nodeId, out var parentId) && _progress.GetSkillLevel(parentId) < 1) return;
+
         var cost = CostsFor(nodeId)[level];
         if (_progress.MetaCurrency < cost) return;
 
@@ -655,9 +685,19 @@ public partial class MainMenu : Node2D
             var maxLevel = MaxLevelFor(nodeId);
 
             button.Text = $"{CumulativeText(nodeId, level)}\n{level}/{maxLevel}";
-            button.TooltipText = level >= maxLevel
-                ? $"{NodePerLevelText[nodeId]}\n{(maxLevel == 1 ? "Unlocked" : "MAX LEVEL")}"
-                : $"{NodePerLevelText[nodeId]}\nCost: {costs[level]} gold";
+
+            // Csak akkor vásárolható (1. szintre sem), ha az előtte lévő
+            // node már legalább 1. szinten van — lásd OnNodePressed/_nodeParentId.
+            var isLocked = level < 1
+                && _nodeParentId.TryGetValue(nodeId, out var parentId)
+                && _progress.GetSkillLevel(parentId) < 1;
+            button.Disabled = isLocked;
+
+            button.TooltipText = isLocked
+                ? $"Locked — unlock \"{NodePerLevelText[parentId]}\" first"
+                : level >= maxLevel
+                    ? $"{NodePerLevelText[nodeId]}\n{(maxLevel == 1 ? "Unlocked" : "MAX LEVEL")}"
+                    : $"{NodePerLevelText[nodeId]}\nCost: {costs[level]} gold";
         }
     }
 
