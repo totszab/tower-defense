@@ -171,18 +171,20 @@ Minden toronyhoz (lásd TECHNICAL.md "Adatvezérelt dizájn"): `Damage`, `Range`
 |---|---|---|---|---|---|
 | Green Slime | 2 | 1 | 1 | 1 tile/mp | Alapból (dmg skill nélkül) veszteség nélkül ölhető — 1-2. kör |
 | Blue Slime | 4 | 1 | 2 | 1 tile/mp | 1 `dmg` skill-szint (5 arany, DPS 2) kell a tiszta öléshez — 3-6. kör |
-| Purple Slime | 6 | 2 | 3 | 1 tile/mp | 2 `dmg` skill-szint (15 arany, DPS 3) kell hozzá — 6-10. kör |
+| Purple Slime | 16 | 2 | 8 | 1 tile/mp | 6-10. kör — HP 6→16-ra emelve (lásd "AOE-kalibrálás" lent) |
 | Blue Slime (Mini Boss) | 30 | 5 | 5 | 1 tile/mp | Önálló egység (nem áradat), a lőtávban töltött ~5,7 mp alatt kell megölni — 5. kör záró ellenfele |
 | Purple Slime (Final Boss) | 150 | 10 | 20 | 1 tile/mp | Kb. 27 összesített DPS kell hozzá (több torony egymást átfedő lőtávval, felturbózott dmg/tűzgyorsasággal) — 10. kör záró ellenfele |
-| Green/Blue/Purple Triangle | 2 / 4 / 6 | 1 / 1 / 2 | 1 / 2 / 3 | **2** tile/mp | Ugyanaz a HP/Dmg/Value mint a hasonló színű Slime-nál, csak dupla sebesség — Level 1-en tartalék variáns, nincs körbe téve |
+| Green/Blue/Purple Triangle | 2 / 4 / 16 | 1 / 1 / 2 | 1 / 2 / 8 | **2** tile/mp | Ugyanaz a HP/Dmg/Value mint a hasonló színű Slime-nál, csak dupla sebesség — Level 1-en tartalék variáns, nincs körbe téve |
+
+**AOE-kalibrálás (2026-09-16)**: a Splash Tower (és a felhalmozott dmg/dmg2 skill-szintek egy normál toronynak is) a 6-9. kör Purple Slime-jait a saját területi sugarán belül EGYETLEN lövésből egyszerre ölte, hiszen a HP (6) a `turretDamagePercent`+`dmg`/`dmg2` nélküli szokásos befektetéssel is egy lövésnyi sebzés alá esett — ezzel a "HP/DPS ≤ SpawnInterval" szabály irrelevánssá vált (nem számított a `Count`, mert egy csapást is túlélve sem tudott volna leszakadni belőle senki). A Purple Slime (és a triangle variánsa) HP-ja 6→16-ra, Value-ja 3→8-ra emelve (megtartva a többi ellenségnél is következetes ~2:1 HP:Value arányt), hogy még egy jól felturbózott Splash Tower is TÖBB lövésből ölje meg egy csapat tagjait, ne egyből az egészet.
 
 **Pálya-közti skálázás (miért ugranak ekkorát a Level 2/3 statok)**: mivel a skill fa **globális** (a meta-progresszió minden pályán megmarad), mire a játékos legyőzi Level 1 final bossát, már jelentős dmg/fireRate/torony-szint befektetéssel rendelkezik — egy vadonatúj Level 1-hez tervezett HP-szint triviális lenne neki. A Level 1-es görbe a `dmg` skill-szintekre épített "kaput" (1-2-3 szint, ld. fent); a Level 2/3-as görbe helyette a **torony-számra** épít (mivel a dmg 5. szinten befagy, max ~6 DPS/torony 1,25-szörös tűzgyorsasággal), tehát a magasabb HP-hoz több, egymást átfedő lőtávú toronyt kell csoportosítani ugyanarra a pálya-szakaszra — ugyanaz a taktika, mint a bossoknál.
 
 | Ellenség | HP | Dmg | Value | Speed | Pálya |
 |---|---|---|---|---|---|
-| Red Slime | 10 | 2 | 5 | 1 tile/mp | Level 2, 1-2. kör |
+| Red Slime | 20 | 2 | 10 | 1 tile/mp | Level 2, 1-2. kör — HP 10→20-ra emelve (lásd "AOE-kalibrálás" fent), különben a Level 1 végére felturbózott toronnyal egy lövésből elpusztítható volt |
 | Orange Slime | 18 | 3 | 9 | 1 tile/mp | Level 2, 4-10. kör |
-| Red/Orange Triangle | 10 / 18 | 2 / 3 | 5 / 9 | 2 tile/mp | Level 2, 6. (Red) és 7. (Orange) kör |
+| Red/Orange Triangle | 20 / 18 | 2 / 3 | 10 / 9 | 2 tile/mp | Level 2, 6. (Red) és 7. (Orange) kör |
 | Red Slime (Mini Boss) | 250 | 15 | 35 | 1 tile/mp | Level 2, 5. kör záró ellenfele |
 | Orange Slime (Final Boss) | 500 | 20 | 60 | 1 tile/mp | Level 2, 10. kör záró ellenfele |
 | Cyan Slime | 26 | 4 | 13 | 1 tile/mp | Level 3, 1-2. kör |

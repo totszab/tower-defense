@@ -6,9 +6,9 @@
 [resource]
 script = ExtResource("1")
 DisplayName = "Purple Triangle"
-Hp = 6.0
+Hp = 16.0
 Dmg = 2.0
-Value = 3
+Value = 8
 Speed = 2.0
 Sprite = ExtResource("2")
 Tint = Color(1.3, 0.4, 1.7, 1)
