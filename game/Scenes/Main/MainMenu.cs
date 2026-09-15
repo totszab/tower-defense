@@ -688,9 +688,10 @@ public partial class MainMenu : Node2D
 
             // Csak akkor vásárolható (1. szintre sem), ha az előtte lévő
             // node már legalább 1. szinten van — lásd OnNodePressed/_nodeParentId.
-            var isLocked = level < 1
-                && _nodeParentId.TryGetValue(nodeId, out var parentId)
-                && _progress.GetSkillLevel(parentId) < 1;
+            // A TryGetValue feltétel nélkül fut, hogy parentId minden ágon
+            // definiált legyen (különben CS0165 az alábbi tooltip-ágban).
+            _nodeParentId.TryGetValue(nodeId, out var parentId);
+            var isLocked = level < 1 && parentId != null && _progress.GetSkillLevel(parentId) < 1;
             button.Disabled = isLocked;
 
             button.TooltipText = isLocked
