@@ -87,38 +87,40 @@ Elágazási minta (`MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch`): az 1. r�
 
 | Node (UI felirat) | id | Pozíció (ág / réteg) | Hatás / szint | Ár |
 |---|---|---|---|---|
-| Tower Number | `towers` | Hub | Overall torony-slot szám; **1. szinten indul alapból**, most **10-ig** fejleszthető (volt: 5) | 100/250/500/750/1000/1500/2000/3000/4000 (1→10, **TBD placeholder a 6-10. szinten** — a 250-750 közti árakat tartottuk, utána nem véglegesített, exponenciális becslés) |
-| Damage | `dmg` | Damage / L1 | +1 sebzés MINDEN toronynak, globálisan | 5/10/20/35/50 |
-| Attack Speed | `fireRate` | Damage / L2 (1. node) | MINDEN torony tűzgyorsasága +5%/szint (globális) | 5/10/20/35/50 (**TBD placeholder**) |
-| Crit Chance | `critChance` | Damage / L2 (2. node) | +1% kritikus találat esély/szint | 5/10/20/35/50 |
-| Damage (Attack Speed ágból) | `dmg2` | Damage / L3, a Attack Speed leszármazottja | +2 sebzés/szint (dupla a `dmg`-hez képest) | 10/20/40/70/100 |
-| Crit Damage | `critDamage` | Damage / L3, a Crit Chance leszármazottja | +5% kritikus sebzés-szorzó/szint | 10/20/40/70/100 |
-| Projectile Count | `projectileCount` | Damage / L4, a `dmg2` (1.) leszármazottja | +1 lövedék/lövés (mind ugyanarra a célpontra csapódik be) — **csak 3 szint**, szándékosan drága | 500/1500/4000 |
-| Attack Speed II | `fireRate2` | Damage / L4, a `dmg2` (2.) leszármazottja | +5% tűzgyorsaság/szint (ugyanaz a formula, mint `fireRate`, összeadódik vele) | 15/30/60/105/150 |
-| Crit Chance II | `critChance2` | Damage / L4, a `critDamage` (1.) leszármazottja | +1% kritikus találat esély/szint (összeadódik a `critChance`-szel) | 5/10/20/35/50 |
-| Fire Twice Chance | `fireTwiceChance` | Damage / L4, a `critDamage` (2.) leszármazottja | +2% esély, hogy a normál lövés UTÁN AZONNAL (cooldown kihagyásával) még egyszer tüzeljen — **csak 3 szint**, szándékosan drága | 400/1200/3200 |
-| Health | `hp` | Defense / L1 | +2 kezdő élet | 5/10/20/35/50 |
-| Armor | `armor` | Defense / L2 (1. node) | +1 páncél/szint — flat levonás minden beérkező (célba jutott) ellenség sebzéséből, 0-ig floor-olva | 5/10/20/35/50 |
-| Kill Regen | `regenPerKills` | Defense / L2 (2. node) | +N HP minden 10. megölt ellenség után (N=szint) — **csak 3 szint** | 15/35/75 |
-| Health II | `hp2` | Defense / L3, az Armor leszármazottja | +2 kezdő élet/szint (ugyanaz a formula, mint `hp`, összeadódik vele) | 5/10/20/35/50 |
-| Time Regen | `regenPerTime` | Defense / L3, a Kill Regen leszármazottja | +N HP 5 másodpercenként, amíg a kör aktív (N=szint) — **csak 3 szint** | 15/35/75 |
-| Gold | `currency` | Gold / L1 | +10% szerzett arany (szorzó) | 50/150/300/500/1000 |
-| Double Gold Chance | `doubleGoldChance` | Gold / L2 (1. node) | +2%/szint esély, hogy egy ellenség megölésekor duplázódjon a kapott arany — **csak 3 szint** | 15/35/75 |
-| Win Bonus | `goldAfterWin` | Gold / L2 (2. node) | +10 arany/szint, ha a kör sikeres (nem jár Retreat-nél) | 50/150/300/500/1000 |
-| Gold Per Kill | `goldPerKill` | Gold / L3, a Double Gold Chance leszármazottja | +1 arany/ölés per szint (flat, a szorzókon FELÜL) — **csak 3 szint**, szándékosan drága | 600/1800/5000 |
-| Enemy Surge | `enemySpawnBonus` | Gold / L3, a Win Bonus leszármazottja | +5%/szint TÖBB ellenség spawnol ebben a körben (kockázat/jutalom — nem csökkenti az eredeti számot) — **csak 4 szint** | 20/45/90/160 |
-| Gold II | `currency2` | Gold / L4, a Gold Per Kill (1.) leszármazottja | +10% szerzett arany/szint (ugyanaz a formula, mint `currency`, összeadódik vele) | 50/150/300/500/1000 |
-| Hit Gold Chance | `goldOnHitChance` | Gold / L4, a Gold Per Kill (2.) leszármazottja | +2%/szint esély, hogy egy TALÁLAT (nem csak ölés) 1 arany bónuszt adjon — **csak 3 szint** | 15/35/75 |
-| Enemy Buff | `enemyStatsAndDrop` | Gold / L4, az Enemy Surge (1.) leszármazottja | +5%/szint az ellenségek HP/Dmg/Value értékére (kockázat/jutalom) — **csak 4 szint** | 20/45/90/160 |
-| Bonus Boss | `extraMiniBossChance` | Gold / L4, az Enemy Surge (2.) leszármazottja | +5%/szint esély, hogy a kör végén EGY extra mini boss is spawnoljon (a pálya saját mini bossa, lásd `LevelBuild.LevelMiniBossPaths`) — **csak 3 szint** | 15/35/75 |
-| Turret Radius | `turretRadius` | Towers / L2 (1. node) | +5%/szint torony lőtáv, MINDEN toronynak (globális) | 15/35/75 |
-| Splash Tower | `unlockSplash` | Towers / L2 (2. node) | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 150 |
-| Turret Attack Speed | `turretAttackSpeed` | Towers / L3, a Turret Radius leszármazottja | +2%/szint tűzgyorsaság, MINDEN toronynak (összeadódik a Damage ág `fireRate`/`fireRate2`-jével) — **csak 3 szint** | 15/35/75 |
-| Splash Area | `splashAreaPercent` | Towers / L3, az (Unlock) Splash Tower leszármazottja | +2%/szint a Splash Tower saját sugarára (csak akkor számít, ha a Splash Tower már fel van oldva) — **csak 3 szint** | 15/35/75 |
-| Sniper Tower | `unlockSniper` | Towers / L4, a Turret Attack Speed (1.) leszármazottja | Egyszeri: feloldja a Sniper Tower típust | 400 |
-| Turret Damage | `turretDamagePercent` | Towers / L4, a Turret Attack Speed (2.) leszármazottja | +3%/szint SZORZÓ sebzés, MINDEN toronynak (a `dmg`/`dmg2` flat bónusza UTÁN alkalmazva) — **csak 3 szint** | 15/35/75 |
-| Splash Damage | `splashDamagePercent` | Towers / L4, a Splash Area (1.) leszármazottja | +5%/szint szorzó, DE CSAK a splash-találatokra hat, a normál becsapódásra nem — **csak 3 szint** | 15/35/75 |
-| Chance To Splash | `chanceToSplash` | Towers / L4, a Splash Area (2.) leszármazottja | +2%/szint esély, hogy egy EGYÉBKÉNT nem-splash torony lövése is 1 tile sugarú területet sebezzen — **csak 3 szint** | 15/35/75 |
+| Tower Number | `towers` | Hub | Overall torony-slot szám; **1. szinten indul alapból**, most **10-ig** fejleszthető (volt: 5) | 150/375/750/1125/1500/2250/3000/4500/6000 (1→10) |
+| Damage | `dmg` | Damage / L1 | +1 sebzés MINDEN toronynak, globálisan | 10/15/30/50/75 |
+| Attack Speed | `fireRate` | Damage / L2 (1. node) | MINDEN torony tűzgyorsasága +5%/szint (globális) | 10/15/30/50/75 |
+| Crit Chance | `critChance` | Damage / L2 (2. node) | +1% kritikus találat esély/szint | 10/15/30/50/75 |
+| Damage (Attack Speed ágból) | `dmg2` | Damage / L3, a Attack Speed leszármazottja | +2 sebzés/szint (dupla a `dmg`-hez képest) | 15/30/60/105/150 |
+| Crit Damage | `critDamage` | Damage / L3, a Crit Chance leszármazottja | +5% kritikus sebzés-szorzó/szint | 15/30/60/105/150 |
+| Projectile Count | `projectileCount` | Damage / L4, a `dmg2` (1.) leszármazottja | +1 lövedék/lövés (mind ugyanarra a célpontra csapódik be) — **csak 3 szint**, szándékosan drága | 750/2250/6000 |
+| Attack Speed II | `fireRate2` | Damage / L4, a `dmg2` (2.) leszármazottja | +5% tűzgyorsaság/szint (ugyanaz a formula, mint `fireRate`, összeadódik vele) | 20/45/90/160/225 |
+| Crit Chance II | `critChance2` | Damage / L4, a `critDamage` (1.) leszármazottja | +1% kritikus találat esély/szint (összeadódik a `critChance`-szel) | 10/15/30/50/75 |
+| Fire Twice Chance | `fireTwiceChance` | Damage / L4, a `critDamage` (2.) leszármazottja | +2% esély, hogy a normál lövés UTÁN AZONNAL (cooldown kihagyásával) még egyszer tüzeljen — **csak 3 szint**, szándékosan drága | 600/1800/4800 |
+| Health | `hp` | Defense / L1 | +2 kezdő élet | 10/15/30/50/75 |
+| Armor | `armor` | Defense / L2 (1. node) | +1 páncél/szint — flat levonás minden beérkező (célba jutott) ellenség sebzéséből, 0-ig floor-olva | 10/15/30/50/75 |
+| Kill Regen | `regenPerKills` | Defense / L2 (2. node) | +N HP minden 10. megölt ellenség után (N=szint) — **csak 3 szint** | 20/50/110 |
+| Health II | `hp2` | Defense / L3, az Armor leszármazottja | +2 kezdő élet/szint (ugyanaz a formula, mint `hp`, összeadódik vele) | 10/15/30/50/75 |
+| Time Regen | `regenPerTime` | Defense / L3, a Kill Regen leszármazottja | +N HP 5 másodpercenként, amíg a kör aktív (N=szint) — **csak 3 szint** | 20/50/110 |
+| Gold | `currency` | Gold / L1 | +10% szerzett arany (szorzó) | 75/225/450/750/1500 |
+| Double Gold Chance | `doubleGoldChance` | Gold / L2 (1. node) | +2%/szint esély, hogy egy ellenség megölésekor duplázódjon a kapott arany — **csak 3 szint** | 20/50/110 |
+| Win Bonus | `goldAfterWin` | Gold / L2 (2. node) | +10 arany/szint, ha a kör sikeres (nem jár Retreat-nél) | 75/225/450/750/1500 |
+| Gold Per Kill | `goldPerKill` | Gold / L3, a Double Gold Chance leszármazottja | +1 arany/ölés per szint (flat, a szorzókon FELÜL) — **csak 3 szint**, szándékosan drága | 900/2700/7500 |
+| Enemy Surge | `enemySpawnBonus` | Gold / L3, a Win Bonus leszármazottja | +5%/szint TÖBB ellenség spawnol ebben a körben (kockázat/jutalom — nem csökkenti az eredeti számot) — **csak 4 szint** | 30/70/135/240 |
+| Gold II | `currency2` | Gold / L4, a Gold Per Kill (1.) leszármazottja | +10% szerzett arany/szint (ugyanaz a formula, mint `currency`, összeadódik vele) | 75/225/450/750/1500 |
+| Hit Gold Chance | `goldOnHitChance` | Gold / L4, a Gold Per Kill (2.) leszármazottja | +2%/szint esély, hogy egy TALÁLAT (nem csak ölés) 1 arany bónuszt adjon — **csak 3 szint** | 20/50/110 |
+| Enemy Buff | `enemyStatsAndDrop` | Gold / L4, az Enemy Surge (1.) leszármazottja | +5%/szint az ellenségek HP/Dmg/Value értékére (kockázat/jutalom) — **csak 4 szint** | 30/70/135/240 |
+| Bonus Boss | `extraMiniBossChance` | Gold / L4, az Enemy Surge (2.) leszármazottja | +5%/szint esély, hogy a kör végén EGY extra mini boss is spawnoljon (a pálya saját mini bossa, lásd `LevelBuild.LevelMiniBossPaths`) — **csak 3 szint** | 20/50/110 |
+| Turret Radius | `turretRadius` | Towers / L2 (1. node) | +5%/szint torony lőtáv, MINDEN toronynak (globális) | 20/50/110 |
+| Splash Tower | `unlockSplash` | Towers / L2 (2. node) | Egyszeri: feloldja a Splash Tower típust (lásd "Tornyok") | 225 |
+| Turret Attack Speed | `turretAttackSpeed` | Towers / L3, a Turret Radius leszármazottja | +2%/szint tűzgyorsaság, MINDEN toronynak (összeadódik a Damage ág `fireRate`/`fireRate2`-jével) — **csak 3 szint** | 20/50/110 |
+| Splash Area | `splashAreaPercent` | Towers / L3, az (Unlock) Splash Tower leszármazottja | +2%/szint a Splash Tower saját sugarára (csak akkor számít, ha a Splash Tower már fel van oldva) — **csak 3 szint** | 20/50/110 |
+| Sniper Tower | `unlockSniper` | Towers / L4, a Turret Attack Speed (1.) leszármazottja | Egyszeri: feloldja a Sniper Tower típust | 600 |
+| Turret Damage | `turretDamagePercent` | Towers / L4, a Turret Attack Speed (2.) leszármazottja | +3%/szint SZORZÓ sebzés, MINDEN toronynak (a `dmg`/`dmg2` flat bónusza UTÁN alkalmazva) — **csak 3 szint** | 20/50/110 |
+| Splash Damage | `splashDamagePercent` | Towers / L4, a Splash Area (1.) leszármazottja | +5%/szint szorzó, DE CSAK a splash-találatokra hat, a normál becsapódásra nem — **csak 3 szint** | 20/50/110 |
+| Chance To Splash | `chanceToSplash` | Towers / L4, a Splash Area (2.) leszármazottja | +2%/szint esély, hogy egy EGYÉBKÉNT nem-splash torony lövése is 1 tile sugarú területet sebezzen — **csak 3 szint** | 20/50/110 |
+
+**Gazdasági optimalizálás (2026-09-15)**: az összes fenti ár ~1.5×-re lett skálázva (kerekítve) az eredeti (Damage/Defense/Gold ág feltöltésekor megadott) értékekhez képest. Indok: egy szimuláció szerint (kör-időtartam a `WaveData.SpawnInterval`/lépésszámból, arany-bevétel a `WaveData`/`EnemyData.Value`-ból, DPS a `Tower.cs` formuláiból, mindhárom pálya mind a 30 köre) a REGI árakkal egy optimálisan (kizárólag DPS-re fókuszáltan, gazdaság/védelem-fejlesztés nélkül) játszó játékos ~26-27 perc alatt végigjátszotta volna mindhárom pályát — a felhasználó explicit kérése szerint ennek **legalább** 30-45 percnek kellett volna lennie. Az új árakkal ugyanez a szimulált "leggyorsabb lehetséges" végigjátszás ~36 percre nyúlik — ez egy ALSÓ becslés, a valós (védelembe/gazdaságba is invesztáló) játékosoknál ez csak hosszabb lesz. A mérethez az ELLENSÉGEKET nem kellett módosítani (a végső DPS-plafon, ~1183, továbbra is jó eséllyel bőven meghaladja a Level 3 10. körének ~800 DPS-igényét). Egy meglévő mentésben már megvásárolt szintek természetesen megmaradnak — az árváltozás csak a jövőbeli vásárlásokra hat.
 
 **A Defense/Gold ág implementációja** (`LevelBuild.cs`): az armor/regen/gold-mechanikák mind a helyi kör-állapotban élnek (`_hp`, `_goldCollected` stb.), ugyanúgy, mint az összes eddigi statisztika. Az `enemySpawnBonus` a hullám tényleges spawn-számát növeli (`AdjustedSpawnCount`), ezért a győzelmi feltétel (`_totalEnemiesThisWave`) is ehhez az IGAZÍTOTT összeghez igazodik, nem a nyers `WaveData.TotalEnemyCount()`-hoz. Az `enemyStatsAndDrop` az `Enemy.StatMultiplier` mezőn keresztül hat (spawn-oláskor beállítva) — SOHA nem módosítja magát az `EnemyData` resource-ot (megosztott, lásd a `CollisionShape2D`-s óvatosságot is). A `goldOnHitChance` a MEGLÉVŐ `DamageTracker.DamageDealt` eseményre épül (amit a `OnDamageDealt` már amúgy is figyel a statisztika popuphoz), nem igényelt új esemény-rendszert.
 

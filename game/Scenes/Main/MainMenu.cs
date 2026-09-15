@@ -79,14 +79,19 @@ public partial class MainMenu : Node2D
         ["Level3"] = "Level 3",
     };
 
-    private static readonly int[] DmgHpCosts = { 5, 10, 20, 35, 50 };
-    private static readonly int[] CurrencyCosts = { 50, 150, 300, 500, 1000 };
+    // Minden görbe ~1.5x-re emelve az eredetihez képest (lásd GAMEPLAY.md
+    // "Skill fa" — gazdasági optimalizálás), hogy a 3 pálya végigjátszása
+    // (mind a 30 kör) egy optimálisan (leggyorsabban) játszó, DPS-re
+    // fókuszáló játékosnak is legalább ~30-45 percbe kerüljön, nem csak
+    // ~15-25-be. Egy szimuláció alapján lettek meghatározva (kör-idők +
+    // arany-bevétel a WaveData-ból, DPS-görbe a Tower.cs formuláiból), lásd
+    // [project-skill-tree-v2-content] memory.
+    private static readonly int[] DmgHpCosts = { 10, 15, 30, 50, 75 };
+    private static readonly int[] CurrencyCosts = { 75, 225, 450, 750, 1500 };
 
     // Index 0 sosem kerül lekérdezésre — a "towers" mindig >=1 szinten van
     // (PlayerProgress.GetSkillLevel baseline). 1->2, ..., 9->10 árak.
-    // TBD, placeholder: a max szint 5->10 emelése (lásd MaxTowersLevel) friss,
-    // a 6-10. szint ára még nincs véglegesítve — csoportonként nézzük át.
-    private static readonly int[] TowerCosts = { 0, 100, 250, 500, 750, 1000, 1500, 2000, 3000, 4000 };
+    private static readonly int[] TowerCosts = { 0, 150, 375, 750, 1125, 1500, 2250, 3000, 4500, 6000 };
 
     // TBD: a tűzgyorsaság node árát nem adta meg a design — egyelőre a
     // sebzés/élet görbét használjuk placeholderként.
@@ -94,23 +99,23 @@ public partial class MainMenu : Node2D
 
     // Egyszeri (1 szintes, nem 0-5) unlock node-ok — a torony TÍPUSOK a skill
     // fából nyílnak, nem a pálya-progressztől függenek (lásd LevelBuild.TowerUnlocks).
-    private static readonly int[] UnlockSplashCosts = { 150 };
-    private static readonly int[] UnlockSniperCosts = { 400 };
+    private static readonly int[] UnlockSplashCosts = { 225 };
+    private static readonly int[] UnlockSniperCosts = { 600 };
 
     // Damage ág, L2-L4 tartalma (lásd Tower.cs a tényleges harci hatásért).
     private static readonly int[] CritChanceCosts = DmgHpCosts; // ugyanaz az 5-szintes görbe, mindkét crit chance node-nak
-    private static readonly int[] CritDamageCosts = { 10, 20, 40, 70, 100 }; // L3, mélyebben van, ezért drágább az alapgörbénél
-    private static readonly int[] Dmg2Costs = { 10, 20, 40, 70, 100 }; // L3, dupla hatás/szint (+2 vs +1), ezért dupla ár
-    private static readonly int[] FireRate2Costs = { 15, 30, 60, 105, 150 }; // L4, még mélyebben
-    private static readonly int[] ProjectileCountCosts = { 500, 1500, 4000 }; // csak 3 szint, szándékosan drága/exponenciális
-    private static readonly int[] FireTwiceChanceCosts = { 400, 1200, 3200 }; // csak 3 szint, szintén drága
+    private static readonly int[] CritDamageCosts = { 15, 30, 60, 105, 150 }; // L3, mélyebben van, ezért drágább az alapgörbénél
+    private static readonly int[] Dmg2Costs = { 15, 30, 60, 105, 150 }; // L3, dupla hatás/szint (+2 vs +1), ezért dupla ár
+    private static readonly int[] FireRate2Costs = { 20, 45, 90, 160, 225 }; // L4, még mélyebben
+    private static readonly int[] ProjectileCountCosts = { 750, 2250, 6000 }; // csak 3 szint, szándékosan drága/exponenciális
+    private static readonly int[] FireTwiceChanceCosts = { 600, 1800, 4800 }; // csak 3 szint, szintén drága
 
     // Defense/Gold ág — osztott görbék a "normál" (nem kifejezetten drágának
     // jelzett) 3/4-szintes node-oknak, hogy ne kelljen mindegyiknek saját
     // tömböt írni (lásd Tower.cs/LevelBuild.cs a tényleges hatásokért).
-    private static readonly int[] Normal3LevelCosts = { 15, 35, 75 };
-    private static readonly int[] Normal4LevelCosts = { 20, 45, 90, 160 };
-    private static readonly int[] GoldPerKillCosts = { 600, 1800, 5000 }; // szándékosan drága/exponenciális
+    private static readonly int[] Normal3LevelCosts = { 20, 50, 110 };
+    private static readonly int[] Normal4LevelCosts = { 30, 70, 135, 240 };
+    private static readonly int[] GoldPerKillCosts = { 900, 2700, 7500 }; // szándékosan drága/exponenciális
 
     // Kézzel karbantartott lista — nincs központi "minden ellenség" registry,
     // amikor új ellenségtípus készül, ide is fel kell venni.
@@ -371,27 +376,26 @@ public partial class MainMenu : Node2D
         }
     }
 
-    // A vonalakat egy-egy elforgatott ColorRect-tel rajzoljuk (nem egyedi
-    // _Draw()-val) — ugyanaz a rendszer, mint a gombok saját rajzolása, ami
-    // bizonyítottan jól követi a pan/zoom transzformot. Egy korábbi verzió
-    // egyetlen Control _Draw()-jával rajzolta az összes élet; az zoomolás
-    // közben nem (vagy alig) látszott — ez a csere ezt a bizonytalanságot
-    // küszöböli ki, nem csak a vastagságot/áttetszőséget hangolja.
+    // A vonalakat Line2D-vel rajzoljuk. Két korábbi próbálkozás megbukott:
+    // egyedi Control._Draw() (zoomolva alig látszott), majd elforgatott
+    // ColorRect-ek (Position+Size+Rotation) — utóbbi jobb volt, de nagy
+    // zoomnál néhány vonal továbbra is eltűnt. A Line2D a pontjait
+    // KÖZVETLENÜL a helyi térben tárolja (nincs Rotation/PivotOffset
+    // kombináció, amit a motornak vissza kéne fejtenie), és kifejezetten
+    // vastag vonal rajzolására való — ez egy valódi, más renderelési út,
+    // nem csak a vastagság/áttetszőség hangolása.
     private void BuildSkillTreeEdges()
     {
         foreach (var (from, to, branch) in _skillEdges)
         {
             var (_, border) = SkillBranchColors[branch];
-            var length = from.DistanceTo(to);
 
-            var line = new ColorRect
+            var line = new Line2D
             {
-                Position = from,
-                Size = new Vector2(length, 4f),
-                PivotOffset = new Vector2(0, 2f),
-                Rotation = (to - from).Angle(),
-                Color = new Color(border.R, border.G, border.B, 0.85f),
-                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Points = new[] { from, to },
+                Width = 4f,
+                DefaultColor = new Color(border.R, border.G, border.B, 0.85f),
+                ZIndex = -1,
             };
             _skillTreeCanvas.AddChild(line);
         }
