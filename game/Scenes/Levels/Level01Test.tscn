@@ -175,7 +175,7 @@ visible = false
 offset_left = 256.0
 offset_top = 144.0
 offset_right = 1024.0
-offset_bottom = 576.0
+offset_bottom = 626.0
 theme_override_styles/panel = SubResource("PanelStyle")
 
 [node name="TitleLabel" type="Label" parent="CanvasLayer/StatsPopup"]
@@ -199,12 +199,12 @@ offset_top = 105.0
 offset_right = 748.0
 offset_bottom = 370.0
 
-[node name="SavePresetButton" type="Button" parent="CanvasLayer/StatsPopup"]
+[node name="ReplayRoundButton" type="Button" parent="CanvasLayer/StatsPopup"]
 offset_left = 330.0
 offset_top = 380.0
 offset_right = 470.0
 offset_bottom = 420.0
-text = "Save Preset"
+text = "Replay Round"
 
 [node name="NextRoundButton" type="Button" parent="CanvasLayer/StatsPopup"]
 visible = false
@@ -220,6 +220,13 @@ offset_top = 380.0
 offset_right = 748.0
 offset_bottom = 420.0
 text = "Close"
+
+[node name="SavePresetButton" type="Button" parent="CanvasLayer/StatsPopup"]
+offset_left = 608.0
+offset_top = 432.0
+offset_right = 748.0
+offset_bottom = 472.0
+text = "Save Preset"
 
 [node name="TowerInfoPopup" type="Panel" parent="CanvasLayer"]
 visible = false

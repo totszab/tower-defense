@@ -113,6 +113,7 @@ public partial class LevelBuild : Node2D
     private VBoxContainer _damageListContainer;
     private Button _nextRoundButton;
     private Button _savePresetButton;
+    private Button _replayRoundButton;
 
     private PlayerProgress _progress;
     private string _levelId;
@@ -172,6 +173,7 @@ public partial class LevelBuild : Node2D
         _damageListContainer = GetNode<VBoxContainer>("CanvasLayer/StatsPopup/DamageList");
         _nextRoundButton = GetNode<Button>("CanvasLayer/StatsPopup/NextRoundButton");
         _savePresetButton = GetNode<Button>("CanvasLayer/StatsPopup/SavePresetButton");
+        _replayRoundButton = GetNode<Button>("CanvasLayer/StatsPopup/ReplayRoundButton");
 
         _towerInfoPopup = GetNode<Panel>("CanvasLayer/TowerInfoPopup");
         _towerInfoLabel = GetNode<Label>("CanvasLayer/TowerInfoPopup/InfoLabel");
@@ -185,6 +187,7 @@ public partial class LevelBuild : Node2D
         GetNode<Button>("CanvasLayer/StatsPopup/CloseButton").Pressed += OnCloseStatsPressed;
         _nextRoundButton.Pressed += OnNextRoundPressed;
         _savePresetButton.Pressed += SavePreset;
+        _replayRoundButton.Pressed += OnReplayRoundPressed;
         _resetTowersButton.Pressed += OnResetTowersPressed;
         var dmgToggle = GetNode<Button>("CanvasLayer/DamageTogglePanel/DamageToggleButton");
         dmgToggle.Pressed += () => OnDamageTogglePressed(dmgToggle);
@@ -784,16 +787,25 @@ public partial class LevelBuild : Node2D
         _startRoundButton.Disabled = true;
     }
 
+    // A kör-vége statisztika "Close" gombja a skill fához (Főmenü) navigál,
+    // nem csak elrejti a popupot — a felhasználó kérése szerint innen a
+    // logikus következő lépés a skill fán elkölteni a most szerzett aranyat.
     private void OnCloseStatsPressed()
     {
-        _statsPopup.Visible = false;
-        _startRoundButton.Disabled = false;
+        GetTree().ChangeSceneToFile("res://Scenes/Main/MainMenu.tscn");
     }
 
     private void OnNextRoundPressed()
     {
         RequestedLevelId = _levelId;
         RequestedRoundNumber = _roundNumber + 1;
+        GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
+    }
+
+    private void OnReplayRoundPressed()
+    {
+        RequestedLevelId = _levelId;
+        RequestedRoundNumber = _roundNumber;
         GetTree().ChangeSceneToFile("res://Scenes/Levels/Level01Test.tscn");
     }
 
