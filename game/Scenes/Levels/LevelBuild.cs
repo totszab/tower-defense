@@ -625,15 +625,27 @@ public partial class LevelBuild : Node2D
         SpawnEnemy(bossData);
     }
 
+    // Egy tick-en belül a batch tagjai függőlegesen ilyen sorrendben térnek
+    // el a sáv közepétől (tile-arányban): 0, +1, -1, +2, -2, ... — így egy
+    // szoros csapat sosem esik pontosan egy vonalba, tehát sosem takarhatja
+    // ki teljesen egymást a sprite-juk/HP sávjuk, függetlenül a vízszintes
+    // (1 tile-os) hézagtól.
+    private const float VerticalStaggerStep = 16f;
+
     private void SpawnEnemy(EnemyData data, int spawnIndexInStep = 0)
     {
         var enemy = EnemyScene.Instantiate<Enemy>();
         enemy.Data = data;
         enemy.StatMultiplier = _enemyStatMultiplier;
         // Egy tick-en belül a batch tagjai ne fedjék teljesen egymást — egy
-        // tile-nyi hézaggal "mögé" spawnolnak, hogy látszódjon, hányan jönnek.
+        // tile-nyi hézaggal "mögé" spawnolnak (vízszintesen), ÉS egy kis
+        // cikkcakkban is eltolva (függőlegesen), hogy látszódjon, hányan
+        // jönnek egy szoros csapatban, és a HP sávjuk sose takarja ki egymást.
         var xOffset = -spawnIndexInStep * GridConstants.TileSize;
-        enemy.Position = new Vector2(xOffset, (PathRow + 0.5f) * GridConstants.TileSize);
+        var zigzagMagnitude = (spawnIndexInStep + 1) / 2;
+        var zigzagSign = spawnIndexInStep % 2 == 1 ? 1f : -1f;
+        var yOffset = zigzagSign * zigzagMagnitude * VerticalStaggerStep;
+        enemy.Position = new Vector2(xOffset, (PathRow + 0.5f) * GridConstants.TileSize + yOffset);
         enemy.Died += () => OnEnemyKilled(enemy);
         _enemies.AddChild(enemy);
     }
