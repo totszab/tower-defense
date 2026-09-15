@@ -130,6 +130,8 @@ A Damage ág fája: `dmg` (L1) → **{`fireRate`, `critChance`}** (L2, kettéág
 
 A maradék node (mind a 4 ág L5-L6 rétege, Towers ág L1 hub-hoz kapcsolódó node-ja) **placeholder** — letiltva, "Coming soon" tooltippel, nincs ár/hatás hozzárendelve.
 
+**Előfeltétel-lánc (2026-09-16)**: egy node 1. szintje csak akkor vásárolható meg, ha a fában közvetlenül ELŐTTE lévő node már legalább 1. szinten van (pl. Attack Speed csak akkor kattintható, ha a Damage — `dmg` — meg van véve). A szülő-gyerek párokat a `MainMenu.BuildSkillTreeLayout`/`BuildSkillBranch` ugyanazon elágazási bejárása tölti fel (`_nodeParentId`), ami a fa alakját is felépíti — placeholder node-on (pl. a Towers ág üres L1-je) egyszerűen átlép, hogy egy még tartalom nélküli node sose blokkolja véglegesen a mögötte lévőket. A hub (`towers`) mindig legalább 1. szinten van (baseline), így az L1 node-ok gyakorlatban sosem zároltak. Zárolt node: elhalványítva (ugyanaz a stílus, mint a placeholder node-oké), a tooltip megmondja, mit kell előbb megvenni.
+
 **Node megjelenítés**: hover nélkül a node a JELENLEGI kumulált hatást mutatja + szintet (pl. `+3 damage, 3/5`); hover-re (natív Godot tooltip) az egy szintnyi (marginális) hatás jelenik meg + ár vagy "MAX LEVEL"/"Unlocked" (egyszeri node-oknál). Az egyszeri unlock node-ok `MainMenu.MaxLevelFor()` szerint 1-nél, a `towers` 10-nél, a `projectileCount`/`fireTwiceChance` 3-nál, a többi node 5-nél maxol ki.
 
 **Eszköz/képesség ág**: egyelőre nincs kijelölt hely rá — a Towers/Special ág placeholder rétegei (L4-L6) jó jelöltek lehetnek, ha eldől a tartalom.
